@@ -40,7 +40,7 @@ exécutions au même commit produisent le même digest.
 | H2 déduplication CDC | mesurée | `h2.dedup_recall.exact` ≥ 0,99 ; `h2.edit_cost_kib` ≤ 512 KiB ; `h2.penalty_pct.d20`, `.d40` ≤ 0 % |
 | H3 montage et accès aléatoire | mesurée | `h3.metadata_plaintext` = 1 ; `h3.open_scaling` ≤ 20× (10× plus de fichiers) ; `h3.find_p99_over_blake3_mib` ≤ 0,05 ; `h3.chunks_per_read4k.max` ≤ 2 |
 | H4 FUSE/WinFsp | non mesurée | prérequis : `vault-mount` |
-| H5 parité Reed-Solomon | mesurée | `h5.repair_rate.*` = 1 (4 scénarios) ; `h5.build_vs_blake3` ≤ 3× **non bloquante**, voir [ADR-0003](../docs/adr/0003-cout-construction-parite.md) |
+| H5 parité Reed-Solomon | mesurée | `h5.repair_rate.*` = 1 (4 scénarios) ; `h5.build_vs_blake3` ≤ 3× **non bloquante** (2,2–3,5× à ≥ 4 fils depuis l'encodage parallèle, 6× mono-fil), voir [ADR-0003](../docs/adr/0003-cout-construction-parite.md) |
 | H6 delta entre archives | non mesurée | prérequis : commande delta |
 | H7 dictionnaire zstd | non mesurée | prérequis : dictionnaire dans le format |
 | H8 décodage vs disque | non mesurée | prérequis : hôte et disque de référence |

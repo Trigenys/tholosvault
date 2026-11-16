@@ -190,3 +190,19 @@
 - Ne jamais relâcher un seuil : réfutation = ADR + lessons-learned + `blocking:false` + `adr`.
 - Exécution complète du profil `ci` ≈ 2 min, plus si les corpus se régénèrent (I/O) ; lancer en arrière-plan.
 - Les binaires `target/release/tholos*` ne sont pas rebuilds par `cargo test` : `cargo build -p vault-cli --release` avant un smoke test.
+
+## 2026-11-16 22:48 — Parité : encodage parallèle par tranches de colonnes (vault-core)
+
+**Objectif en cours** — Chantier « parité parallèle » livré (PR `feat/parite-parallele`) ; seuil H5 `h5.build_vs_blake3` **non réarmé** (marge insuffisante, voir ADR-0003 « Suivi »). Prochains : calibration BLAKE3 du banc sur le même volume, `vault-mount` (H4), delta (H6).
+**Fait**
+- `vault-core` : fonctionnalité `parallel` (rayon, activée par défaut) ; `build_section` découpe chaque groupe en tranches de colonnes de 512 o (ensemble de travail ≤ 1 MiB), tâches groupes × tranches sur le pool, un `ReedSolomonEncoder` réutilisé par travailleur, CRC en parallèle, écriture en place. Sortie identique octet pour octet (test `slicing_is_exact`, roundtrip/réparation inchangés) avec et sans la fonctionnalité.
+- Mesures (32 MiB, 10 %) : 1,23 s/GB → 0,84 (1 fil), 0,33–0,38 (4 fils), 0,33–0,39 (16 fils). Rapport BLAKE3 : 6,2 / 2,3–3,5 / 2,2–2,5.
+- Docs : ADR-0003 section « Suivi » (option GF(2⁸) écartée : k + m ≤ 256), leçon B-001 complétée, `bench/README.md`, README (`--no-default-features`). CI : `cargo test -p vault-core --no-default-features` sur ubuntu.
+**Reste à faire**
+1. Banc : calibrer BLAKE3 sur 32 MiB en mémoire (même régime que la construction) — à consigner dans l'ADR avant d'appliquer ; puis ≥ 5 exécutions `--only H5` à 4 fils, réarmer `blocking: true` si ≤ 2,5 partout.
+2. Cœur : écrire les shards de secours directement dans la section ; paralléliser `reconstruct`.
+3. `vault-mount` (H4), delta (H6) ; `bench/results/reference-full.*` ; détracker `apps/landing/video/.thumbnails/`.
+**Pièges / contexte**
+- La calibration BLAKE3 du banc varie de 0,11 à 0,18 s/GB d'une exécution à l'autre : le rapport `h5.build_vs_blake3` bouge de ±30 % sans changement de code. Juger la tendance sur `h5.build_s_per_gb`.
+- `RAYON_NUM_THREADS=n` pour simuler un hôte à n cœurs ; `--only H5` ≈ 50 s.
+- Encodeurs GF(2⁸) incompatibles avec les groupes de 1 024 shards sans changement de format.
