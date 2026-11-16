@@ -1,5 +1,9 @@
 name: Repository governance
 
+# Réconciliation du ruleset géré (preset solo) via la GitHub App AppFactory :
+# aucun PAT. Prérequis côté organisation : variable APPFACTORY_APP_CLIENT_ID et
+# secret APPFACTORY_APP_PRIVATE_KEY exposés à ce dépôt, App installée dessus.
+
 on:
   workflow_dispatch:
     inputs:
@@ -11,6 +15,12 @@ on:
         options:
           - plan
           - apply
+  push:
+    paths:
+      - .github/project-config.json
+      - .github/workflows/repository-governance.yml
+  schedule:
+    - cron: '17 3 * * *'
 
 permissions:
   contents: read
@@ -20,18 +30,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  govern:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout trusted default branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-
-      - name: Plan or apply repository governance
-        uses: EagleFox31/appfactory-project-automation@3fbf1825593a998e47d72994d4a1034d127bef1c
-        with:
-          governance-token: ${{ secrets.APPFACTORY_GOVERNANCE_TOKEN }}
-          governance-mode: ${{ inputs.governance_mode }}
-          config-path: .github/project-config.json
+  reconcile:
+    if: github.event_name != 'push' || github.ref_name == github.event.repository.default_branch
+    uses: EagleFox31/appfactory-project-automation/.github/workflows/reusable-repository-governance.yml@3fbf1825593a998e47d72994d4a1034d127bef1c
+    with:
+      governance_mode: ${{ github.event_name == 'workflow_dispatch' && inputs.governance_mode || 'apply' }}
+      config_path: .github/project-config.json
+      authentication: github-app
+      app_client_id: ${{ vars.APPFACTORY_APP_CLIENT_ID }}
+    secrets:
+      app_private_key: ${{ secrets.APPFACTORY_APP_PRIVATE_KEY }}

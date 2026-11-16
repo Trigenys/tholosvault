@@ -128,3 +128,32 @@
 **Pièges / contexte**
 - Depuis l'application du ruleset, travailler sur une branche : `git switch -c <type>/<sujet>` puis `gh pr create`. Les sessions partageant ce checkout doivent faire de même.
 - `cancel-in-progress` de la CI annule le run d'un push précédent quand un second suit de près (5a99825 annulé par 6299760) : normal.
+
+## 2026-11-16 16:38 — Gouvernance branchée sur la GitHub App AppFactory (zéro PAT)
+
+**Objectif en cours** — Réconciliation continue du ruleset sans créer de secret ; prochaine étape : bench H1–H8, `read_range`, `vault-mount`.
+**Fait**
+- `.github/workflows/repository-governance.yml` réécrit sur le workflow réutilisable `reusable-repository-governance.yml` (SHA 3fbf1825…, même épingle que la CI) en `authentication: github-app` : `vars.APPFACTORY_APP_CLIENT_ID` + `secrets.APPFACTORY_APP_PRIVATE_KEY`. Déclencheurs : manuel (plan/apply), push sur la config de gouvernance depuis la branche par défaut, cron quotidien 03:17 UTC (apply).
+- Inventaire préalable : aucun secret/variable sur le dépôt ; org Trigenys illisible sans scope `admin:org` ; aucun autre dépôt Trigenys ne fait tourner la gouvernance ; `broker-user` ne couvre que les Projects. Seule voie zéro-PAT : la GitHub App AppFactory déjà existante (README du broker).
+**Décisions**
+- Règle permanente : ne jamais proposer un nouveau PAT/secret avant d'avoir vérifié l'existant (org, App, broker, autres dépôts). `APPFACTORY_GOVERNANCE_TOKEN` abandonné.
+**Reste à faire**
+1. Utilisateur : exposer `APPFACTORY_APP_CLIENT_ID` (variable org) et `APPFACTORY_APP_PRIVATE_KEY` (secret org) à `Trigenys/tholosvault`, installer l'App sur le dépôt, puis lancer le workflow en `plan` pour valider (attendu : NO-OP). Merger la PR 72 du registre ; décider board / releases.
+2. Bench H1–H8 ; `read_range` ; `vault-mount`.
+**Pièges / contexte**
+- Sans ces valeurs, le job échoue dès l'étape « Validate governance authentication » avec une erreur explicite : comportement attendu, pas une régression.
+- Commit construit par plumbing git (`GIT_INDEX_FILE` temporaire, `commit-tree`, `update-ref`) car `git worktree add` échoue sur Windows (« Filename too long », vignettes `apps/landing/video/.thumbnails/`) et le checkout est partagé avec d'autres sessions.
+
+## 2026-11-16 16:52 — GitHub App appfactory-bot : variable posée, clé privée à poser par l'utilisateur
+
+**Objectif en cours** — Activer le workflow de gouvernance (PR 2) en zéro PAT.
+**Fait**
+- Scope `admin:org` accordé au token `gh` par l'utilisateur (device flow).
+- Inventaire org Trigenys : aucune variable ni secret Actions ; App **appfactory-bot** (propriétaire Trigenys, client ID public `Iv23lisXtkmMFl0u3hs5`) déjà installée sur **tous** les dépôts de l'org avec Administration en écriture : rien à installer.
+- Variable d'org `APPFACTORY_APP_CLIENT_ID` créée, visibilité `selected` limitée à `tholosvault` (valeur publique, pas un secret).
+**Reste à faire**
+1. Utilisateur : poser le secret d'org `APPFACTORY_APP_PRIVATE_KEY` (PEM de l'App, à générer dans les réglages de l'App si aucune clé n'est disponible) avec `gh secret set APPFACTORY_APP_PRIVATE_KEY --org Trigenys --visibility selected --repos tholosvault < cle.pem`. Puis merger la PR 2 et lancer le workflow en `plan` (attendu : NO-OP).
+2. Bench H1–H8 ; `read_range` ; `vault-mount`.
+**Pièges / contexte**
+- Lire ou poser une clé privée est hors de mon périmètre : seule la commande est fournie. Ne jamais mettre le PEM dans une variable ni dans un fichier du dépôt.
+- `gh api orgs/<org>/installations` liste les Apps installées et leurs permissions : vérifier là avant d'installer quoi que ce soit.
