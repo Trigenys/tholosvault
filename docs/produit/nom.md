@@ -3,8 +3,10 @@
 **Retenu : tholosvault**, signature « by Trigenys Group » (ADR-0002). *Tholos* (grec θόλος) : édifice circulaire à voûte, dont le
 trésor de Delphes ; un tholos est littéralement une voûte. Binaire CLI : `tholos` (évite le conflit avec le `vault` de HashiCorp).
 Vérifié le 2026-11-16 : aucun dépôt GitHub homonyme, organisation GitHub libre, crates.io et npm libres, `.com`, `.io`, `.dev`,
-`.app` en NXDOMAIN. À faire avant la landing : acheter `tholosvault.com` (+ `.io`, `.dev`), réserver l'org GitHub, la crate et le
-paquet npm, contrôler la marque (INPI / EUIPO).
+`.app` en NXDOMAIN, mais **aucun achat de domaine** : le produit vit en sous-domaine de `trigenys.com` (DNS chez Spaceship),
+`tholosvault.trigenys.com` pour la landing, `console.tholosvault.trigenys.com` pour la console (CNAME vers l'hébergeur retenu,
+à créer au moment du déploiement). À faire avant la landing : réserver l'org GitHub, la crate et le paquet npm, contrôler la
+marque (INPI / EUIPO).
 
 ## Deuxième tour : combinaisons gréco-latines (2026-11-16)
 

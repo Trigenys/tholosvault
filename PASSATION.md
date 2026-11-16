@@ -32,3 +32,7 @@ Journal en ajout seulement. Chaque session ajoute une entrée datée en fin de f
 ## 2026-11-16 12:32 — Signature « by Trigenys Group »
 
 - Correction : l'éditeur et la signature sont **Trigenys Group** (pas « Trigenys » seul) dans README, CLAUDE.md, cadrage, nom.md, ADR-0002.
+
+## 2026-11-16 12:34 — Domaine : sous-domaine de trigenys.com
+
+- Pas d'achat de tholosvault.com : landing sur `tholosvault.trigenys.com`, console sur `console.tholosvault.trigenys.com` (DNS Spaceship, CNAME à créer au déploiement). nom.md et ADR-0002 mis à jour.

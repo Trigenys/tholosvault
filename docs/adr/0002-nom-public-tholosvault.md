@@ -11,6 +11,7 @@
 - **Décision** : nom public **tholosvault** (θόλος : édifice à voûte, trésor de Delphes), sans préfixe éditeur ;
   signature « by Trigenys Group » sur la landing, les stores, le README et les en-têtes de licence. Commande CLI : `tholos`.
   « VAULT » reste le nom de travail interne (dépôt, crates `vault-*`).
-- **Conséquences** : acheter `tholosvault.com` (+ `.io`, `.dev`) et réserver org GitHub, crate et paquet npm avant toute
+- **Conséquences** : pas d'achat de domaine, le produit est servi en sous-domaine de `trigenys.com`
+  (`tholosvault.trigenys.com`, console sur `console.tholosvault.trigenys.com`) ; réserver org GitHub, crate et paquet npm avant toute
   communication ; contrôle de marque INPI / EUIPO ; le renommage des crates en `tholos-*` est possible plus tard par un ADR.
 - **Dérogation RAIDER** : aucune.
