@@ -1,51 +1,109 @@
-# VAULT — nom public : tholosvault
+# tholosvault
 
-Éditeur : Trigenys Group. « tholosvault, by Trigenys Group » (ADR-0002). VAULT reste le nom de travail interne du dépôt et du cœur.
+**Archives montables, vérifiables et dédupliquées.** Un format ouvert et un CLI, `tholos`, by Trigenys Group.
 
-Format d'archive **montable** : découpe par contenu (CDC), compression zstd par morceau avec dictionnaires,
-arbre de Merkle BLAKE3, 3–5 % de parité Reed-Solomon, index lisible par mmap. L'archive se monte comme un
-disque (FUSE, WinFsp, FSKit) : lecture d'un morceau en ~0,1 ms sans extraction, réparation sans
-retéléchargement, mise à jour en delta.
+[![CI](https://github.com/Trigenys/tholosvault/actions/workflows/ci.yml/badge.svg)](https://github.com/Trigenys/tholosvault/actions/workflows/ci.yml)
+[![Licence Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](rust-toolchain.toml)
 
-État : **cadrage**. Aucun code applicatif pour l'instant ; ce dépôt contient le squelette du monorepo et la
-documentation produit et technique.
+Pour lire un seul fichier dans une archive classique, il faut tout extraire : un quart d'heure, un disque
+plein. Avec tholosvault, on branche l'archive, on ne l'ouvre pas. Chaque morceau se lit seul, chaque octet
+est vérifiable, et une archive abîmée se répare sans retéléchargement.
 
-## Documents
+## Pourquoi tholosvault
+
+| Promesse | Comment |
+|---|---|
+| **Lire sans extraire** | Chaque morceau est compressé à part et localisé par un index en clair lisible par mmap : un accès coûte une décompression de 128 KiB, pas de l'archive entière. |
+| **Dédupliquer sans configurer** | La découpe par contenu (FastCDC) coupe là où les données le décident. Deux versions d'un même dossier partagent leurs morceaux identiques. |
+| **Prouver l'intégrité** | Une empreinte BLAKE3 par morceau, une racine de Merkle par fichier et pour l'archive. Un octet abîmé est localisé au morceau près. |
+| **Réparer sur place** | 5 % de parité Reed-Solomon par défaut : les morceaux abîmés sont reconstruits depuis l'archive elle-même. |
+| **Reproduire au bit près** | Même entrée, même archive. Deux `pack` du même dossier donnent le même fichier, donc la même racine. |
+
+Cibles prioritaires : bibliothèques de jeux solo, indé et rétro (mods, émulateurs), artefacts de CI et arbres
+de sources, archives documentaires et photothèques.
+
+## Ce qui marche aujourd'hui
+
+Le cœur Rust `vault-core` et le CLI `tholos` implémentent le format v1 :
+
+- `tholos pack` : découpe FastCDC (64–256 KiB), zstd par morceau, Merkle BLAKE3, parité Reed-Solomon, trailer
+  répliqué protégé par CRC32C ;
+- `tholos list` et `tholos verify` : lecture des métadonnées sans décompression, vérification morceau par
+  morceau avec rapport précis ;
+- `tholos repair` : reconstruction des morceaux abîmés par la parité, validée par des tests d'injection de
+  corruptions ;
+- `tholos extract` : extraction sûre (aucune sortie hors du dossier cible).
+
+Testé en CI sur Linux et Windows : format, clippy en mode strict, tests unitaires et d'intégration, build release.
+
+## Démarrer
+
+Prérequis : Rust stable (voir `rust-toolchain.toml`).
+
+```bash
+cargo build --release -p vault-cli
+./target/release/tholos pack ./mon-dossier mon-archive.tholos
+./target/release/tholos list mon-archive.tholos
+./target/release/tholos verify mon-archive.tholos
+./target/release/tholos repair mon-archive.tholos
+./target/release/tholos extract mon-archive.tholos ./restauré
+```
+
+Options utiles : `--level` (niveau zstd, 15 par défaut), `--parity` (pourcentage de parité, 5 par défaut).
+
+## Format
+
+Le format est documenté et stable par version : [`docs/format/spec-v0.md`](docs/format/spec-v0.md)
+(détection) et [`docs/format/spec-v1.md`](docs/format/spec-v1.md) (parité et réparation). Une archive v0 se
+lit comme une archive v1 sans parité.
+
+```text
+[en-tête 64 o][frames zstd…][index morceaux][table fichiers][table hachage][parité][trailer 128 o ×2]
+```
+
+Toute la logique de format vit dans `vault-core`. Les applications sont des adaptateurs minces.
+
+## Feuille de route
+
+| Étape | Contenu |
+|---|---|
+| **v1 (actuel)** | Format, CLI, parité et réparation, CI Linux et Windows |
+| **Prochaine** | Bench public H1–H8 (corpus, protocole, seuils bloquants), lecture par plage |
+| **Montage** | `vault-mount` : FUSE (Linux), WinFsp (Windows), FSKit ou macFUSE (macOS) |
+| **Delta** | Mise à jour entre deux versions en ne transférant que les morceaux changés |
+| **Surfaces** | Application desktop (Tauri 2), console web, site |
+
+Hors périmètre déclaré : écriture en place au montage, décodage GPU, compression neuronale.
+Tout ajout passe par un ADR dans [`docs/adr/`](docs/adr/).
+
+## Documentation
 
 | Document | Contenu |
 |---|---|
-| [docs/produit/cadrage-surfaces.md](docs/produit/cadrage-surfaces.md) | Surfaces (landing, web, desktop, mobile, CLI), pages, parcours, matrice fonctionnalités, décisions à trancher |
-| [docs/produit/stack.md](docs/produit/stack.md) | Comparaison et choix de stack par surface, briques réutilisées |
-| [docs/recherche/](docs/recherche/) | Rapport *Archives montables et compression prospective* : état de l'art, thèses H1–H8, innovations E1–E5, protocole MVP |
-| [docs/engineering/lessons-learned.md](docs/engineering/lessons-learned.md) | Mémoire des échecs et leçons |
-| [docs/adr/](docs/adr/) | Décisions d'architecture (ADR-0001 : open core, Apache-2.0) |
-| [docs/produit/nom.md](docs/produit/nom.md) | Nom public tholosvault : vérifications et shortlist (D11) |
-| [apps/landing/video/](apps/landing/video/) | Source HyperFrames de la vidéo « VAULT, le principe » ; rendu final dans `docs/media/` |
-| [PASSATION.md](PASSATION.md) | Journal de passation (ajout seulement) |
+| [docs/produit/cadrage-surfaces.md](docs/produit/cadrage-surfaces.md) | Surfaces, parcours, matrice de fonctionnalités |
+| [docs/produit/stack.md](docs/produit/stack.md) | Choix de stack par surface |
+| [docs/recherche/](docs/recherche/) | Rapport *Archives montables et compression prospective* : état de l'art, thèses H1–H8 |
+| [docs/engineering/lessons-learned.md](docs/engineering/lessons-learned.md) | Mémoire des incidents et leçons |
+| [docs/adr/](docs/adr/) | Décisions d'architecture |
 
-## Arborescence prévue
+## Monorepo
 
 ```
 crates/
   vault-core/      format : CDC, zstd, Merkle, parité, index (bibliothèque Rust)
-  vault-cli/       binaire `tholos` : create, mount, verify, repair, delta, ls, cat
-  vault-mount/     adaptateurs FUSE / WinFsp / FSKit / ProjFS
-  vault-api/       API de la console web (Axum), réutilise vault-core
-apps/
-  desktop/         Tauri 2 + React
-  landing/         Astro
-  web/             console Next.js
-  mobile/          Flutter + flutter_rust_bridge (plus tard)
-packages/
-  ui/              composants React partagés desktop / web
-bench/             corpus, scripts et résultats du protocole H1–H8
+  vault-cli/       binaire tholos
+  vault-mount/     adaptateurs FUSE / WinFsp / FSKit (à venir)
+apps/              desktop, landing, console web (à venir)
+bench/             corpus, protocole et résultats H1–H8 (à venir)
 docs/
 ```
 
-## Prérequis (quand le code arrivera)
-
-Rust stable, pnpm 9+, Node 22+. Montage : fuse3 (Linux), WinFsp (Windows), macFUSE ou FSKit (macOS).
-
 ## Licence
 
-Open core (ADR-0001) : format, `vault-core`, `vault-cli` et `vault-mount` sous [Apache-2.0](LICENSE) ; apps et console propriétaires.
+Open core ([ADR-0001](docs/adr/0001-modele-open-core-apache.md)) : le format, `vault-core`, `vault-cli` et `vault-mount` sont sous
+[Apache-2.0](LICENSE). Les applications et la console sont propriétaires.
+
+---
+
+tholosvault, by [Trigenys Group](https://trigenys.com).
