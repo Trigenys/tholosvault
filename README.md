@@ -31,6 +31,8 @@ Le cœur Rust `vault-core` et le CLI `tholos` implémentent le format v1 :
   répliqué protégé par CRC32C ;
 - `tholos list` et `tholos verify` : lecture des métadonnées sans décompression, vérification morceau par
   morceau avec rapport précis ;
+- `tholos cat` : lecture d'une plage d'octets d'un fichier (`--offset`, `--len`) sans extraire
+  l'archive, en ne décompressant que les morceaux couverts.
 - `tholos repair` : reconstruction des morceaux abîmés par la parité, validée par des tests d'injection de
   corruptions ;
 - `tholos extract` : extraction sûre (aucune sortie hors du dossier cible).
@@ -95,7 +97,7 @@ crates/
   vault-cli/       binaire tholos
   vault-mount/     adaptateurs FUSE / WinFsp / FSKit (à venir)
 apps/              desktop, landing, console web (à venir)
-bench/             corpus, protocole et résultats H1–H8 (à venir)
+bench/             banc des thèses H1–H8 : corpus synthétique, seuils bloquants, profil `ci` en CI
 docs/
 ```
 

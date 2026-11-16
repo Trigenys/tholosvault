@@ -1,0 +1,539 @@
+{
+  "schema": "tholos-bench/1",
+  "profile": "ci",
+  "tool": {
+    "vault_core": "0.1.0",
+    "zstd": 10507,
+    "git_rev": "47684de"
+  },
+  "host": {
+    "os": "windows",
+    "arch": "x86_64",
+    "cpus": 16,
+    "calib_blake3_ns_per_mib": 184100
+  },
+  "corpus": [
+    {
+      "id": "code",
+      "seed": 11,
+      "files": 1107,
+      "bytes": 16777216,
+      "digest": "97fac9a33bd79172249c44ac65ee9b082ed30205cbd509062c4b504b0c4b78bd",
+      "ratio_solid": 8.52893456032096,
+      "valid": true
+    },
+    {
+      "id": "binary",
+      "seed": 12,
+      "files": 56,
+      "bytes": 16777216,
+      "digest": "09919652235dedc9250f0c46893f0bfe82531c3f81f63f994ed8b4e4898dc558",
+      "ratio_solid": 1.4773582810558472,
+      "valid": true
+    },
+    {
+      "id": "dup00",
+      "seed": 21,
+      "files": 1053,
+      "bytes": 33554432,
+      "digest": "e8c13b7849ba459ecb80e34d012a1f0543962ead6ff549ec277148ef72e3b58d",
+      "ratio_solid": 2.5676332395027517,
+      "valid": true
+    },
+    {
+      "id": "dup10",
+      "seed": 21,
+      "files": 1077,
+      "bytes": 37296024,
+      "digest": "747400b607e6f48cb0b16aa7743f2679d6d1d243da36fb519714a20dab2e177d",
+      "ratio_solid": 2.6666235766809296,
+      "valid": true
+    },
+    {
+      "id": "dup20",
+      "seed": 21,
+      "files": 1101,
+      "bytes": 41991116,
+      "digest": "22f6e8764d74dd68ac852bf1383f5b538c9ec3943246c9abacb459da76fecd15",
+      "ratio_solid": 2.3616075691813396,
+      "valid": true
+    },
+    {
+      "id": "dup40",
+      "seed": 21,
+      "files": 1093,
+      "bytes": 55954200,
+      "digest": "ecaf53925c6c539e544d32d4ab9f19c94f8d48f561cb31424ebcd690cfb66c3a",
+      "ratio_solid": 2.15165627027481,
+      "valid": true
+    },
+    {
+      "id": "small1",
+      "seed": 31,
+      "files": 2000,
+      "bytes": 2307285,
+      "digest": "d169607af39ae4439ac9f1286a69f0e8b428e066e93130cafe7b0656dc51ada1",
+      "ratio_solid": null,
+      "valid": true
+    },
+    {
+      "id": "small10",
+      "seed": 32,
+      "files": 20000,
+      "bytes": 23055658,
+      "digest": "7dc48eede2d126510497b82879a8723862ba6884656d6b0c2dd27529470aca17",
+      "ratio_solid": null,
+      "valid": true
+    }
+  ],
+  "theses": [
+    {
+      "id": "H1",
+      "title": "Le découpage coûte peu face à zstd solide",
+      "status": "measured",
+      "reason": null,
+      "prerequisite": null,
+      "verdict": "supported",
+      "metrics": [
+        {
+          "id": "h1.loss_pct.binary.block1m",
+          "value": -0.8632972905525752,
+          "unit": "%",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 10.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h1.loss_pct.binary.cdc",
+          "value": -4.717420671495912,
+          "unit": "%",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 25.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h1.loss_pct.code.block1m",
+          "value": 5.867131921504514,
+          "unit": "%",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 20.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h1.loss_pct.code.cdc",
+          "value": 24.077192040644725,
+          "unit": "%",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 25.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h1.overhead_pct.binary.index",
+          "value": 0.14420767383706454,
+          "unit": "%",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        },
+        {
+          "id": "h1.overhead_pct.code.index",
+          "value": 6.9071563046074615,
+          "unit": "%",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        },
+        {
+          "id": "h1.ratio_solid.binary",
+          "value": 1.4773582810558472,
+          "unit": "x",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        },
+        {
+          "id": "h1.ratio_solid.code",
+          "value": 8.52893456032096,
+          "unit": "x",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        }
+      ]
+    },
+    {
+      "id": "H2",
+      "title": "La déduplication CDC retrouve les doublons exacts et édités sans coûter plus que zstd solide dès 20 % de doublons",
+      "status": "measured",
+      "reason": null,
+      "prerequisite": null,
+      "verdict": "supported",
+      "metrics": [
+        {
+          "id": "h2.dedup_recall.edited",
+          "value": 0.7353938984854658,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        },
+        {
+          "id": "h2.dedup_recall.exact",
+          "value": 1.0,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": ">=",
+            "value": 0.99
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h2.edit_cost_kib",
+          "value": 249.603271484375,
+          "unit": "KiB",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 512.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h2.penalty_pct.d0",
+          "value": 1.696962267434146,
+          "unit": "%",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        },
+        {
+          "id": "h2.penalty_pct.d10",
+          "value": -2.4994575023228194,
+          "unit": "%",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        },
+        {
+          "id": "h2.penalty_pct.d20",
+          "value": -17.78284293550536,
+          "unit": "%",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 0.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h2.penalty_pct.d40",
+          "value": -37.62908199506129,
+          "unit": "%",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 0.0
+          },
+          "blocking": true,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": "H3",
+      "title": "Montage : métadonnées en clair, ouverture linéaire, recherche et lecture 4 KiB bornées",
+      "status": "measured",
+      "reason": null,
+      "prerequisite": null,
+      "verdict": "supported",
+      "metrics": [
+        {
+          "id": "h3.chunks_per_read4k.max",
+          "value": 2.0,
+          "unit": "chunks",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 2.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h3.find_ns",
+          "value": 1600.0,
+          "unit": "ns",
+          "p50": 600.0,
+          "p99": 1600.0,
+          "samples": 20000,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        },
+        {
+          "id": "h3.find_p99_over_blake3_mib",
+          "value": 0.008690928843020097,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 0.05
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h3.metadata_plaintext",
+          "value": 1.0,
+          "unit": "bool",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "==",
+            "value": 1.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h3.open_ns_per_file",
+          "value": 277.95,
+          "unit": "ns",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        },
+        {
+          "id": "h3.open_scaling",
+          "value": 6.452779276848354,
+          "unit": "x",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 20.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h3.read4k_ns",
+          "value": 472600.0,
+          "unit": "ns",
+          "p50": 41700.0,
+          "p99": 472600.0,
+          "samples": 20000,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        }
+      ]
+    },
+    {
+      "id": "H4",
+      "title": "Un montage FUSE/WinFsp lit à la vitesse du décodeur",
+      "status": "not_measured",
+      "reason": "vault-mount n'existe pas encore",
+      "prerequisite": "crate vault-mount (surface mount)",
+      "verdict": "n/a",
+      "metrics": []
+    },
+    {
+      "id": "H5",
+      "title": "La parité Reed-Solomon répare dégâts aléatoires et contigus dans son budget, à un coût proche de BLAKE3",
+      "status": "measured",
+      "reason": null,
+      "prerequisite": null,
+      "verdict": "refuted",
+      "metrics": [
+        {
+          "id": "h5.build_s_per_gb",
+          "value": 1.233708381652832,
+          "unit": "s/GB",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        },
+        {
+          "id": "h5.build_vs_blake3",
+          "value": 7.026816947311244,
+          "unit": "x",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 3.0
+          },
+          "blocking": false,
+          "pass": false,
+          "adr": "docs/adr/0003-cout-construction-parite.md"
+        },
+        {
+          "id": "h5.repair_rate.contig10@p10",
+          "value": 1.0,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "==",
+            "value": 1.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h5.repair_rate.contig5@p5",
+          "value": 1.0,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "==",
+            "value": 1.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h5.repair_rate.random2@p5",
+          "value": 1.0,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "==",
+            "value": 1.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h5.repair_rate.random5@p10",
+          "value": 1.0,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "==",
+            "value": 1.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h5.repair_s_per_gb",
+          "value": 3.2093197107315063,
+          "unit": "s/GB",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        }
+      ]
+    },
+    {
+      "id": "H6",
+      "title": "Le delta entre deux archives tient dans les morceaux nouveaux",
+      "status": "not_measured",
+      "reason": "pas de commande delta",
+      "prerequisite": "chantier delta (vault-core)",
+      "verdict": "n/a",
+      "metrics": []
+    },
+    {
+      "id": "H7",
+      "title": "Un dictionnaire zstd partagé gagne sur les petits fichiers",
+      "status": "not_measured",
+      "reason": "le format v1 n'embarque pas de dictionnaire",
+      "prerequisite": "ADR dictionnaire + champ de format versionné",
+      "verdict": "n/a",
+      "metrics": []
+    },
+    {
+      "id": "H8",
+      "title": "Le décodage sature la bande passante disque sur un cœur",
+      "status": "not_measured",
+      "reason": "nécessite un disque et un hôte de référence stables",
+      "prerequisite": "hôte de mesure dédié (hors CI partagée)",
+      "verdict": "n/a",
+      "metrics": []
+    }
+  ],
+  "pass": true
+}

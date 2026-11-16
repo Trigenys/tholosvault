@@ -1,6 +1,7 @@
 //! CLI `tholos` : adaptateur mince au-dessus de `vault-core`.
 
 use std::fs;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -42,6 +43,18 @@ enum Cmd {
     Repair { archive: PathBuf },
     /// Extrait toute l'archive dans un répertoire.
     Extract { archive: PathBuf, out_dir: PathBuf },
+    /// Écrit un fichier (ou une plage) sur la sortie standard en ne décompressant
+    /// que les morceaux couvrants.
+    Cat {
+        archive: PathBuf,
+        path: String,
+        /// Octet de départ dans le fichier.
+        #[arg(long, default_value_t = 0)]
+        offset: u64,
+        /// Nombre d'octets à lire (défaut : jusqu'à la fin du fichier).
+        #[arg(long)]
+        len: Option<u64>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -158,6 +171,36 @@ fn main() -> Result<()> {
                 ar.files().len(),
                 out_dir.display()
             );
+        }
+        Cmd::Cat {
+            archive,
+            path,
+            offset,
+            len,
+        } => {
+            let ar = open(&archive)?;
+            let idx = ar
+                .find_index(&path)
+                .ok_or_else(|| anyhow::anyhow!("fichier absent de l'archive : {path}"))?;
+            let size = ar.files()[idx].size;
+            let mut remaining = len.unwrap_or(u64::MAX).min(size.saturating_sub(offset));
+            let mut pos = offset;
+            let mut buf = vec![0u8; 1 << 20];
+            let stdout = io::stdout();
+            let mut out = stdout.lock();
+            while remaining > 0 {
+                let want = remaining.min(buf.len() as u64) as usize;
+                let n = ar
+                    .read_range_into(idx, pos, &mut buf[..want])
+                    .with_context(|| format!("lecture de {path} à {pos}"))?;
+                if n == 0 {
+                    break;
+                }
+                out.write_all(&buf[..n])?;
+                pos += n as u64;
+                remaining -= n as u64;
+            }
+            out.flush()?;
         }
     }
     Ok(())

@@ -172,3 +172,21 @@
 - Ne jamais ajouter de `concurrency` dans un workflow qui appelle `reusable-repository-governance.yml` : le réutilisable le porte déjà.
 - PowerShell refuse `<` : poser un secret depuis un fichier avec `Get-Content -Raw f | gh secret set …`.
 - Clés privées d'App : non retéléchargeables ; vérifier `Credentials → Key pairs` et le disque avant d'en générer.
+
+## 2026-11-16 21:48 — Banc public H1–H8 (`bench/`) et `read_range` dans vault-core
+
+**Objectif en cours** — Chantier banc livré (PR `feat/bench-h1-h8`) ; prochains : `vault-mount` (H4), delta (H6), encodage parallèle de la parité pour réarmer le seuil H5.
+**Fait**
+- `vault-core` : `Archive::chunk_span`, `read_range_into` (lecture d'une plage sans extraire), tests `crates/vault-core/tests/read_range.rs` ; CLI `tholos cat <archive> <chemin> --offset --len`.
+- Crate `vault-bench` (`bench/`, binaire `tholos-bench`) : corpus synthétique déterministe (code, binaire, petits fichiers, doublons exacts/édités à taux contrôlé, parité), profils `ci`/`full` dans `bench/config.json`, contrat déclaré ↔ produit, bandes de validité des corpus (sortie 2), rapport JSON/CSV/markdown, exit 0/1/2.
+- Verdicts profil `ci` : H1, H2, H3 soutenues ; H5 réparation 100 % sur 4 scénarios, **réfutée sur le coût de construction** (1,0–1,3 s/GB mono-thread, 5–10 × BLAKE3) → ADR-0003, `h5.build_vs_blake3` non bloquante avec champ `adr` (contrôle au chargement). H4/H6/H7/H8 `not_measured` avec prérequis.
+- CI : surface `bench` dans `appfactory-impact.json`, job `bench` (ubuntu, profil ci, résumé de job + artefact `bench-ci`), non requis par le ruleset.
+- Leçons : I-002 (corpus de doublons identiques → bande de validité), B-001 (réfutation H5), pointeur L-002 → métriques H3.
+**Reste à faire**
+1. Encodage parallèle par groupe de la parité, comparer à un encodeur GF(2⁸), puis remettre `h5.build_vs_blake3` en bloquant.
+2. `vault-mount` (H4), delta (H6) ; `bench/results/reference-full.*` sur un hôte stable.
+3. Ignorer/détracker `apps/landing/video/.thumbnails/` (noms trop longs, `git worktree add` échoue sous Windows).
+**Pièges / contexte**
+- Ne jamais relâcher un seuil : réfutation = ADR + lessons-learned + `blocking:false` + `adr`.
+- Exécution complète du profil `ci` ≈ 2 min, plus si les corpus se régénèrent (I/O) ; lancer en arrière-plan.
+- Les binaires `target/release/tholos*` ne sont pas rebuilds par `cargo test` : `cargo build -p vault-cli --release` avant un smoke test.

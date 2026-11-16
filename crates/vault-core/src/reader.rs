@@ -11,6 +11,7 @@ use std::fs;
 use std::io::{Seek, SeekFrom, Write};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use memmap2::Mmap;
 
@@ -76,6 +77,48 @@ pub struct RepairReport {
     pub verify_after: VerifyReport,
 }
 
+/// Offsets de début (dans le fichier décompressé) de chaque référence de
+/// morceau, tous fichiers concaténés ; `base[f]..base[f + 1]` délimite le
+/// fichier `f`. Construit paresseusement à la première lecture par plage :
+/// `open()`, `list` et `verify` ne paient rien (L-002).
+struct ChunkStarts {
+    base: Vec<usize>,
+    starts: Vec<u64>,
+}
+
+impl ChunkStarts {
+    fn build(files: &[FileEntry], chunks: &[ChunkEntry]) -> Self {
+        let mut base = Vec::with_capacity(files.len() + 1);
+        let mut starts = Vec::with_capacity(files.iter().map(|f| f.chunks.len()).sum());
+        for f in files {
+            base.push(starts.len());
+            let mut pos = 0u64;
+            for &idx in &f.chunks {
+                starts.push(pos);
+                pos += chunks[idx as usize].len as u64;
+            }
+        }
+        base.push(starts.len());
+        Self { base, starts }
+    }
+
+    fn file_starts(&self, file: usize) -> &[u64] {
+        &self.starts[self.base[file]..self.base[file + 1]]
+    }
+
+    /// Positions (dans `FileEntry::chunks`) des morceaux couvrant `offset..offset + len`.
+    fn span(&self, file: usize, size: u64, offset: u64, len: usize) -> Range<usize> {
+        let starts = self.file_starts(file);
+        if len == 0 || offset >= size || starts.is_empty() {
+            return 0..0;
+        }
+        let end = offset.saturating_add(len as u64).min(size);
+        let first = starts.partition_point(|&s| s <= offset) - 1;
+        let last = starts.partition_point(|&s| s < end);
+        first..last
+    }
+}
+
 struct Tables {
     chunks: Vec<ChunkEntry>,
     files: Vec<FileEntry>,
@@ -92,6 +135,7 @@ pub struct Archive {
     chunks: Vec<ChunkEntry>,
     files: Vec<FileEntry>,
     hash_table: Vec<(Hash, u32)>,
+    chunk_starts: OnceLock<ChunkStarts>,
 }
 
 impl Archive {
@@ -115,6 +159,7 @@ impl Archive {
             chunks: tables.chunks,
             files: tables.files,
             hash_table: tables.hash_table,
+            chunk_starts: OnceLock::new(),
         })
     }
 
@@ -167,6 +212,74 @@ impl Archive {
                 detail: format!("indice {index} hors table"),
             })?;
         read_chunk_raw(&self.map, c, index)
+    }
+
+    /// Indice d'un fichier dans [`Archive::files`] : identifiant stable pour
+    /// enchaîner des lectures par plage sans refaire la recherche.
+    pub fn find_index(&self, path: &str) -> Option<usize> {
+        self.files
+            .binary_search_by(|f| f.path.as_bytes().cmp(path.as_bytes()))
+            .ok()
+    }
+
+    fn chunk_starts(&self) -> &ChunkStarts {
+        self.chunk_starts
+            .get_or_init(|| ChunkStarts::build(&self.files, &self.chunks))
+    }
+
+    fn file_at(&self, file: usize) -> Result<&FileEntry> {
+        self.files.get(file).ok_or_else(|| Error::MalformedSection {
+            section: "table fichiers",
+            detail: format!("indice de fichier {file} hors table"),
+        })
+    }
+
+    /// Positions, dans `files()[file].chunks`, des morceaux qu'une lecture de
+    /// `len` octets à `offset` doit décompresser. Ne lit aucune donnée.
+    pub fn chunk_span(&self, file: usize, offset: u64, len: usize) -> Result<Range<usize>> {
+        let f = self.file_at(file)?;
+        Ok(self.chunk_starts().span(file, f.size, offset, len))
+    }
+
+    /// Lecture partielle, sémantique `pread` : copie dans `buf` les octets du
+    /// fichier `file` à partir de `offset`, tronquée en fin de fichier, et renvoie
+    /// le nombre d'octets écrits (0 si `offset >= size`). Seuls les morceaux
+    /// couvrant la plage sont décompressés, chacun vérifié par son hachage ; la
+    /// racine Merkle du fichier n'est pas recalculée (voir [`Archive::verify`]).
+    pub fn read_range_into(&self, file: usize, offset: u64, buf: &mut [u8]) -> Result<usize> {
+        let f = self.file_at(file)?;
+        if offset >= f.size || buf.is_empty() {
+            return Ok(0);
+        }
+        let want = ((f.size - offset) as usize).min(buf.len());
+        let cs = self.chunk_starts();
+        let starts = cs.file_starts(file);
+        let mut written = 0usize;
+        for pos in cs.span(file, f.size, offset, want) {
+            let data = self.read_chunk(f.chunks[pos])?;
+            let skip = offset.saturating_sub(starts[pos]) as usize;
+            let take = (data.len() - skip).min(want - written);
+            buf[written..written + take].copy_from_slice(&data[skip..skip + take]);
+            written += take;
+            if written == want {
+                break;
+            }
+        }
+        Ok(written)
+    }
+
+    /// Variante allouante de [`Archive::read_range_into`] par chemin ; `len` est
+    /// borné à la taille restante avant toute allocation.
+    pub fn read_range(&self, path: &str, offset: u64, len: usize) -> Result<Vec<u8>> {
+        let file = self
+            .find_index(path)
+            .ok_or_else(|| Error::NotFound(path.to_string()))?;
+        let size = self.files[file].size;
+        let n = size.saturating_sub(offset).min(len as u64) as usize;
+        let mut out = vec![0u8; n];
+        let got = self.read_range_into(file, offset, &mut out)?;
+        out.truncate(got);
+        Ok(out)
     }
 
     /// Contenu complet d'un fichier, vérifié morceau par morceau.
@@ -421,6 +534,19 @@ fn parse_tables(map: &[u8], trailer: &Trailer) -> Result<Tables> {
     )?;
     let hash_table = parse_hash_table(hash_bytes, chunks.len())?;
 
+    for (i, f) in files.iter().enumerate() {
+        let total: u64 = f
+            .chunks
+            .iter()
+            .map(|&c| chunks[c as usize].len as u64)
+            .sum();
+        if total != f.size {
+            return Err(Error::MalformedSection {
+                section: "table fichiers",
+                detail: format!("fichier {i} : taille {} mais morceaux {total}", f.size),
+            });
+        }
+    }
     for (i, c) in chunks.iter().enumerate() {
         let end = c.offset.saturating_add(c.compressed_len as u64);
         if c.offset < HEADER_LEN as u64 || end > trailer.chunk_index_off {
