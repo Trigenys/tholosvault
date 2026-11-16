@@ -206,3 +206,20 @@
 - La calibration BLAKE3 du banc varie de 0,11 à 0,18 s/GB d'une exécution à l'autre : le rapport `h5.build_vs_blake3` bouge de ±30 % sans changement de code. Juger la tendance sur `h5.build_s_per_gb`.
 - `RAYON_NUM_THREADS=n` pour simuler un hôte à n cœurs ; `--only H5` ≈ 50 s.
 - Encodeurs GF(2⁸) incompatibles avec les groupes de 1 024 shards sans changement de format.
+
+## 2026-11-17 00:23 — Banc H5 : calibration BLAKE3 sur le volume protégé (en cours)
+
+**Objectif en cours** — Réarmer `h5.build_vs_blake3` (≤ 3, non bloquant depuis ADR-0003) en rendant son dénominateur stable.
+**Fait (non commité, dossier partagé)**
+- `bench/src/theses/h5.rs` : BLAKE3 mono-fil du buffer protégé mesuré juste après chaque construction ; rapport = médiane build / médiane hash ; nouvelle métrique rapportée `h5.blake3_s_per_gb` (déclarée dans `bench/config.json`). La calibration 1 MiB de l'hôte reste pour H3.
+- `bench/README.md` : paragraphe calibration mis à jour.
+**Reste à faire**
+1. Lire `scratchpad/h5runs/summary.txt` (5 × 4 fils, 1 × 16, 1 × 1) ; réarmer `blocking: true` seulement si ≤ 2,5 partout à 4 fils.
+2. ADR-0003 : section « Suivi (2026-11-17 00:23) — calibration » avec le tableau ; lesson B-001 ; régénérer `bench/results/ci.*` (run complet ≈ 3,5 min, en arrière-plan) ; PR via plumbing (main protégée), CI, fusion, branche supprimée.
+**Pièges** : binaire = `target/release/tholos-bench.exe` (pas vault-bench) ; `RAYON_NUM_THREADS=n` ; les seuils ne se relâchent jamais.
+
+## 2026-11-17 00:31 — Banc H5 : seuil réarmé (PR en cours)
+
+- Mesures 5 × 4 fils : rapport 1,82–2,06 (± 6 %) ; 16 fils 2,03 ; 1 fil 3,76. Run `ci` complet : sortie 0, `h5.build_vs_blake3` = 2,13 **bloquant**.
+- `bench/config.json` : `blocking: true` (seuil ≤ 3 inchangé, champ `adr` conservé). ADR-0003 « Suivi (2026-11-17) », B-001, `bench/README.md`, `bench/results/ci.*` à jour.
+- Reste : PR `bench/calibration-h5` → CI → fusion ; puis chantiers `vault-mount` (H4), delta (H6), shards de secours écrits en place + `reconstruct` parallèle.

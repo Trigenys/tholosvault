@@ -40,14 +40,16 @@ exécutions au même commit produisent le même digest.
 | H2 déduplication CDC | mesurée | `h2.dedup_recall.exact` ≥ 0,99 ; `h2.edit_cost_kib` ≤ 512 KiB ; `h2.penalty_pct.d20`, `.d40` ≤ 0 % |
 | H3 montage et accès aléatoire | mesurée | `h3.metadata_plaintext` = 1 ; `h3.open_scaling` ≤ 20× (10× plus de fichiers) ; `h3.find_p99_over_blake3_mib` ≤ 0,05 ; `h3.chunks_per_read4k.max` ≤ 2 |
 | H4 FUSE/WinFsp | non mesurée | prérequis : `vault-mount` |
-| H5 parité Reed-Solomon | mesurée | `h5.repair_rate.*` = 1 (4 scénarios) ; `h5.build_vs_blake3` ≤ 3× **non bloquante** (2,2–3,5× à ≥ 4 fils depuis l'encodage parallèle, 6× mono-fil), voir [ADR-0003](../docs/adr/0003-cout-construction-parite.md) |
+| H5 parité Reed-Solomon | mesurée | `h5.repair_rate.*` = 1 (4 scénarios) ; `h5.build_vs_blake3` ≤ 3× (1,8–2,1× à ≥ 4 fils, 3,8× mono-fil ; BLAKE3 du même volume, voir [ADR-0003](../docs/adr/0003-cout-construction-parite.md)) |
 | H6 delta entre archives | non mesurée | prérequis : commande delta |
 | H7 dictionnaire zstd | non mesurée | prérequis : dictionnaire dans le format |
 | H8 décodage vs disque | non mesurée | prérequis : hôte et disque de référence |
 
 Les métriques sans seuil (ratios, ns, s/GB, surcoût d'index, rappel édité, pénalité à 0 et 10 %) sont
-**rapportées** pour suivre la tendance. Les métriques de temps sont rapportées à une calibration BLAKE3
-(ns/MiB) mesurée au début de l'exécution, ce qui rend les seuils indépendants de l'hôte.
+**rapportées** pour suivre la tendance. Les métriques de temps sont rapportées à BLAKE3, ce qui rend les
+seuils indépendants de l'hôte : latence par MiB mesurée au début de l'exécution (1 MiB en cache) pour les
+métriques de latence (H3), et BLAKE3 mono-fil du même volume, mesuré au même instant, pour les métriques de
+débit (H5, `h5.blake3_s_per_gb` rapporté à côté de `h5.build_s_per_gb`).
 
 ## Résultats
 

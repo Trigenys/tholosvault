@@ -86,3 +86,6 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
   la variance de la calibration BLAKE3 (0,11–0,18 s/GB sur le même hôte). Leçon ajoutée : un seuil relatif
   n'est pas plus stable que son dénominateur ; calibrer sur le même volume et le même régime mémoire que la
   mesure, sinon le rapport mesure la fréquence turbo.
+- **Suivi 2026-11-17** : dénominateur recalé sur BLAKE3 du même buffer protégé, mesuré au même instant
+  (`h5.blake3_s_per_gb` rapporté) : rapport 1,82–2,06 sur 5 exécutions à 4 fils (± 6 %). Seuil **réarmé**
+  (`blocking: true`, borne ≤ 3 inchangée) ; dérogation RAIDER (D) de l'ADR-0003 levée.

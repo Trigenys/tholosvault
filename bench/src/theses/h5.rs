@@ -1,5 +1,5 @@
 //! H5 — Parité Reed-Solomon : réparation de dégâts aléatoires et contigus dans
-//! le budget déclaré, coût de construction rapporté à BLAKE3.
+//! le budget déclaré, coût de construction rapporté à BLAKE3 du même volume.
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -61,6 +61,7 @@ pub fn run(ctx: &mut Ctx) -> Result<Produced> {
     let mut repaired = vec![0u64; SCENARIOS.len()];
     let mut repair_ns = Vec::new();
     let mut build_ns_per_mib = Vec::new();
+    let mut hash_ns_per_mib = Vec::new();
     let dmg = ctx.work.join("parity-dmg.vault");
 
     for seed in 0..seeds {
@@ -83,6 +84,11 @@ pub fn run(ctx: &mut Ctx) -> Result<Produced> {
                 let (ns, section) = time_ns(|| parity::build_section(protected, &opts.parity));
                 section?;
                 build_ns_per_mib.push(ns * (1 << 20) / protected_len.max(1));
+                // Dénominateur du rapport : BLAKE3 mono-fil du même volume, mesuré dans
+                // les mêmes conditions (même buffer, même instant) que la construction.
+                let (ns, digest) = time_ns(|| blake3::hash(protected));
+                std::hint::black_box(digest);
+                hash_ns_per_mib.push(ns * (1 << 20) / protected_len.max(1));
             }
             for (i, (name, p, kind, permille)) in SCENARIOS.iter().enumerate() {
                 if *p != percent {
@@ -115,13 +121,18 @@ pub fn run(ctx: &mut Ctx) -> Result<Produced> {
         ));
     }
     let build_med = median(&build_ns_per_mib);
+    let hash_med = median(&hash_ns_per_mib);
     out.push(Measured::scalar(
         "h5.build_vs_blake3",
-        build_med as f64 / ctx.calib_ns_per_mib as f64,
+        build_med as f64 / hash_med as f64,
     ));
     out.push(Measured::scalar(
         "h5.build_s_per_gb",
         s_per_gb(build_med, 1 << 20),
+    ));
+    out.push(Measured::scalar(
+        "h5.blake3_s_per_gb",
+        s_per_gb(hash_med, 1 << 20),
     ));
     out.push(Measured::scalar(
         "h5.repair_s_per_gb",
