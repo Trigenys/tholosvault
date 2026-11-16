@@ -62,3 +62,31 @@
   `blocking: true` si le rapport est ≤ 2,5 dans toutes. Piste restante côté cœur : écrire les shards de
   secours directement dans la section (évite une copie de 3,4 MiB par 32 MiB) et paralléliser `reconstruct`.
 
+## Suivi (2026-11-17) — calibration BLAKE3 sur le volume protégé, seuil réarmé
+
+- **Changement du banc** (étape 1 du réarmement ci-dessus) : le dénominateur de `h5.build_vs_blake3` n'est
+  plus la calibration de l'hôte (BLAKE3 d'1 MiB en cache, mesurée au démarrage) mais BLAKE3 mono-fil du
+  **même buffer protégé** (32 MiB), mesuré juste après chaque construction, médiane sur les mêmes graines.
+  Les deux passes traversent le même volume en mémoire au même instant : le rapport ne dépend plus de la
+  fréquence turbo ni du moment de la calibration. Le dénominateur est rapporté (`h5.blake3_s_per_gb`) pour
+  rester vérifiable dans chaque rapport. La calibration 1 MiB reste celle des métriques de latence (H3).
+  Le seuil (≤ 3) est inchangé : c'est la mesure qui est rendue comparable, pas la borne qui est déplacée.
+- **Mesures** (hôte de développement, 32 MiB, 10 %, `--only H5`, 7 exécutions) :
+
+  | Fils rayon | `h5.build_s_per_gb` | `h5.blake3_s_per_gb` | `h5.build_vs_blake3` |
+  |---|---|---|---|
+  | 4 (× 5) | 0,30–0,44 | 0,16–0,22 | **1,82–2,06** |
+  | 16 | 0,34 | 0,17 | 2,03 |
+  | 1 | 0,64 | 0,17 | 3,76 |
+
+  Numérateur et dénominateur bougent ensemble d'une exécution à l'autre (hôte plus ou moins chargé) ; le
+  rapport varie de ± 6 % contre ± 30 % avec l'ancienne calibration.
+- **Décision** : condition de réarmement remplie (≤ 2,5 dans les 5 exécutions à 4 fils) →
+  `h5.build_vs_blake3` repasse `"blocking": true` dans `bench/config.json`, seuil ≤ 3 inchangé, champ `adr`
+  conservé pour la traçabilité. La dérogation RAIDER (D) consignée plus haut est levée. Mono-fil, H5 reste
+  réfutée sur le coût (3,8 ×) : le banc en CI tourne sur ≥ 4 vCPU ; un hôte mono-cœur verra la métrique
+  échouer, ce qui est le comportement attendu d'un seuil déclaré.
+- **Statut de la thèse** : H5 **soutenue** à ≥ 4 fils (coût ≤ 3 × BLAKE3, réparation 100 %), réfutée
+  mono-fil. Pistes restantes côté cœur : écrire les shards de secours directement dans la section,
+  paralléliser `reconstruct`.
+

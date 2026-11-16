@@ -4,13 +4,13 @@
   "tool": {
     "vault_core": "0.1.0",
     "zstd": 10507,
-    "git_rev": "d34996c"
+    "git_rev": "e0bff45"
   },
   "host": {
     "os": "windows",
     "arch": "x86_64",
     "cpus": 16,
-    "calib_blake3_ns_per_mib": 300900
+    "calib_blake3_ns_per_mib": 181700
   },
   "corpus": [
     {
@@ -320,10 +320,10 @@
         },
         {
           "id": "h3.find_ns",
-          "value": 3000.0,
+          "value": 2100.0,
           "unit": "ns",
-          "p50": 900.0,
-          "p99": 3000.0,
+          "p50": 600.0,
+          "p99": 2100.0,
           "samples": 20000,
           "threshold": null,
           "blocking": false,
@@ -331,7 +331,7 @@
         },
         {
           "id": "h3.find_p99_over_blake3_mib",
-          "value": 0.009970089730807577,
+          "value": 0.011557512383048982,
           "unit": "ratio",
           "p50": null,
           "p99": null,
@@ -359,7 +359,7 @@
         },
         {
           "id": "h3.open_ns_per_file",
-          "value": 722.45,
+          "value": 368.0,
           "unit": "ns",
           "p50": null,
           "p99": null,
@@ -370,7 +370,7 @@
         },
         {
           "id": "h3.open_scaling",
-          "value": 6.239947401204236,
+          "value": 8.003532608695652,
           "unit": "x",
           "p50": null,
           "p99": null,
@@ -384,10 +384,10 @@
         },
         {
           "id": "h3.read4k_ns",
-          "value": 707300.0,
+          "value": 406100.0,
           "unit": "ns",
-          "p50": 58500.0,
-          "p99": 707300.0,
+          "p50": 37100.0,
+          "p99": 406100.0,
           "samples": 20000,
           "threshold": null,
           "blocking": false,
@@ -413,8 +413,19 @@
       "verdict": "supported",
       "metrics": [
         {
+          "id": "h5.blake3_s_per_gb",
+          "value": 0.17523956298828125,
+          "unit": "s/GB",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        },
+        {
           "id": "h5.build_s_per_gb",
-          "value": 0.6116218566894531,
+          "value": 0.37401485443115234,
           "unit": "s/GB",
           "p50": null,
           "p99": null,
@@ -425,7 +436,7 @@
         },
         {
           "id": "h5.build_vs_blake3",
-          "value": 2.1313791957460952,
+          "value": 2.1343060211589533,
           "unit": "x",
           "p50": null,
           "p99": null,
@@ -434,7 +445,7 @@
             "op": "<=",
             "value": 3.0
           },
-          "blocking": false,
+          "blocking": true,
           "pass": true,
           "adr": "docs/adr/0003-cout-construction-parite.md"
         },
@@ -496,7 +507,7 @@
         },
         {
           "id": "h5.repair_s_per_gb",
-          "value": 4.463091492652892,
+          "value": 2.612370252609253,
           "unit": "s/GB",
           "p50": null,
           "p99": null,

@@ -84,8 +84,9 @@
         "h5.repair_rate.contig10@p10": { "unit": "ratio", "threshold": { "op": "==", "value": 1 }, "blocking": true },
         "h5.repair_rate.random2@p5": { "unit": "ratio", "threshold": { "op": "==", "value": 1 }, "blocking": true },
         "h5.repair_rate.contig5@p5": { "unit": "ratio", "threshold": { "op": "==", "value": 1 }, "blocking": true },
-        "h5.build_vs_blake3": { "unit": "x", "threshold": { "op": "<=", "value": 3 }, "blocking": false, "adr": "docs/adr/0003-cout-construction-parite.md" },
+        "h5.build_vs_blake3": { "unit": "x", "threshold": { "op": "<=", "value": 3 }, "blocking": true, "adr": "docs/adr/0003-cout-construction-parite.md" },
         "h5.build_s_per_gb": { "unit": "s/GB" },
+        "h5.blake3_s_per_gb": { "unit": "s/GB" },
         "h5.repair_s_per_gb": { "unit": "s/GB" }
       }
     },
