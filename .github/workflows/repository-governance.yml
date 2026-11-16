@@ -25,10 +25,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: repository-governance-${{ github.repository }}
-  cancel-in-progress: false
-
 jobs:
   reconcile:
     if: github.event_name != 'push' || github.ref_name == github.event.repository.default_branch
