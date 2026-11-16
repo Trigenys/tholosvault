@@ -1,0 +1,23 @@
+[package]
+name = "vault-bench"
+version = "0.1.0"
+description = "Bench public des thèses H1–H8 : corpus synthétique, protocole, seuils bloquants."
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "tholos-bench"
+path = "src/main.rs"
+
+[dependencies]
+vault-core.workspace = true
+zstd.workspace = true
+blake3.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true

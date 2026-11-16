@@ -18,7 +18,8 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
   de lookup dès que les métadonnées passent par une couche supplémentaire (H3).
 - **Classification** : performance / architecture.
 - **Prévention** : index et table hash → offset en clair, lisibles par mmap ; benchmark de montage et de lookup
-  dans `bench/` avec seuil bloquant.
+  dans `bench/` avec seuil bloquant. **En place** : `h3.metadata_plaintext`, `h3.open_scaling`,
+  `h3.find_p99_over_blake3_mib`, `h3.chunks_per_read4k.max` (`bench/config.json`, profil `ci` en CI).
 - **Leçon** : le surcoût d'un FS user-mode est par opération ; on optimise le nombre d'I/O par lookup, pas les octets.
 
 ### L-003 — Ne pas vendre le montage par driver aux joueurs compétitifs
@@ -55,3 +56,28 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
   un fichier potentiellement mappé.
 - **Leçon** : un format fondé sur mmap doit documenter que l'archive est verrouillée tant qu'un lecteur est ouvert, et
   les tests doivent tourner sur l'OS cible le plus restrictif, pas seulement sur celui du développeur.
+
+### I-002 — Deux corpus de doublons identiques pour deux taux (near miss, 2026-11-16)
+- **Contexte** : première exécution du banc H2, les corpus `dup10` et `dup20` avaient le même digest et
+  `h2.penalty_pct.d10` = `h2.penalty_pct.d20` = −38 %. Le générateur tirait des copies de binaires de
+  1–8 MiB sur une base de 8 MiB : une seule copie éditée dépassait le budget des deux taux, et le taux réel
+  de doublons était ≈ 50 %.
+- **Cause racine** : le générateur ne vérifiait pas que le corpus produit respectait le paramètre déclaré ;
+  la mesure aurait soutenu la thèse sur un corpus qui ne la testait pas.
+- **Classification** : validité de mesure / banc.
+- **Résolution** : tailles des binaires proportionnelles à la base, règle « ne copier que ce qui tient dans
+  le budget restant », au moins une édition par copie éditée.
+- **Prévention** : bande de validité dans `h2` (taux réel à ±2 points, copies éditées présentes au taux où
+  le rappel est mesuré) → sortie 2 ; test `dup_rate_is_respected` sur deux tailles de base.
+- **Leçon** : un banc valide son corpus contre ses paramètres déclarés avant de mesurer ; deux corpus
+  censés différer et de même digest doivent faire échouer l'exécution, pas produire une ligne de plus.
+
+## Réfutations consignées par le banc
+
+### B-001 — H5 : coût de construction de la parité (2026-11-16)
+- **Mesure** : 1,0–1,3 s/GB mono-thread, 5–10 × BLAKE3, contre ≤ 0,3 s/GB annoncé ; indépendant de la
+  géométrie des shards et des groupes. Réparation : 100 % sur les quatre scénarios.
+- **Décision** : [ADR-0003](../adr/0003-cout-construction-parite.md) — métrique non bloquante avec renvoi
+  d'ADR, chantier « encodage parallèle par groupe » pour réarmer le seuil.
+- **Leçon** : un seuil ne se relâche jamais pour faire passer la CI ; une réfutation se consigne (ADR +
+  ici) et la métrique garde son seuil déclaré, visible dans chaque rapport.

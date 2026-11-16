@@ -24,26 +24,63 @@
         "rust-toolchain.toml",
         "crates/vault-core/**"
       ],
-      "gates": ["rust"]
+      "gates": [
+        "rust"
+      ]
     },
     "cli": {
-      "paths": ["crates/vault-cli/**"],
-      "gates": ["rust"],
-      "dependsOn": ["core"]
+      "paths": [
+        "crates/vault-cli/**"
+      ],
+      "gates": [
+        "rust"
+      ],
+      "dependsOn": [
+        "core"
+      ]
     },
     "mount": {
-      "paths": ["crates/vault-mount/**"],
-      "gates": ["rust"],
-      "dependsOn": ["core"]
+      "paths": [
+        "crates/vault-mount/**"
+      ],
+      "gates": [
+        "rust"
+      ],
+      "dependsOn": [
+        "core"
+      ]
     },
     "api": {
-      "paths": ["crates/vault-api/**"],
-      "gates": ["rust"],
-      "dependsOn": ["core"]
+      "paths": [
+        "crates/vault-api/**"
+      ],
+      "gates": [
+        "rust"
+      ],
+      "dependsOn": [
+        "core"
+      ]
     },
     "ci": {
-      "paths": [".github/**"],
-      "gates": ["rust"]
+      "paths": [
+        ".github/**"
+      ],
+      "gates": [
+        "rust",
+        "bench"
+      ]
+    },
+    "bench": {
+      "paths": [
+        "bench/**"
+      ],
+      "gates": [
+        "rust",
+        "bench"
+      ],
+      "dependsOn": [
+        "core"
+      ]
     }
   }
 }

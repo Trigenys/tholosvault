@@ -1,0 +1,111 @@
+{
+  "schema": "tholos-bench-config/1",
+  "profiles": {
+    "ci": {
+      "code_bytes": 16777216,
+      "binary_bytes": 16777216,
+      "small_counts": [2000, 20000],
+      "dup_base_bytes": 33554432,
+      "dup_rates_pct": [0, 10, 20, 40],
+      "parity_bytes": 33554432,
+      "parity_seeds": 8,
+      "level19": false,
+      "ldm_baseline": false,
+      "lookup_samples": 20000
+    },
+    "full": {
+      "code_bytes": 268435456,
+      "binary_bytes": 268435456,
+      "small_counts": [10000, 100000],
+      "dup_base_bytes": 134217728,
+      "dup_rates_pct": [0, 10, 20, 40],
+      "parity_bytes": 268435456,
+      "parity_seeds": 100,
+      "level19": true,
+      "ldm_baseline": true,
+      "lookup_samples": 200000
+    }
+  },
+  "theses": {
+    "H1": {
+      "title": "Le découpage coûte peu face à zstd solide",
+      "status": "measured",
+      "metrics": {
+        "h1.ratio_solid.code": { "unit": "x" },
+        "h1.ratio_solid.binary": { "unit": "x" },
+        "h1.loss_pct.code.block1m": { "unit": "%", "threshold": { "op": "<=", "value": 20 }, "blocking": true },
+        "h1.loss_pct.binary.block1m": { "unit": "%", "threshold": { "op": "<=", "value": 10 }, "blocking": true },
+        "h1.loss_pct.code.cdc": { "unit": "%", "threshold": { "op": "<=", "value": 25 }, "blocking": true },
+        "h1.loss_pct.binary.cdc": { "unit": "%", "threshold": { "op": "<=", "value": 25 }, "blocking": true },
+        "h1.overhead_pct.code.index": { "unit": "%" },
+        "h1.overhead_pct.binary.index": { "unit": "%" },
+        "h1.loss_pct.code.cdc19": { "unit": "%", "profiles": ["full"] },
+        "h1.loss_pct.binary.cdc19": { "unit": "%", "profiles": ["full"] }
+      }
+    },
+    "H2": {
+      "title": "La déduplication CDC retrouve les doublons exacts et édités sans coûter plus que zstd solide dès 20 % de doublons",
+      "status": "measured",
+      "metrics": {
+        "h2.dedup_recall.exact": { "unit": "ratio", "threshold": { "op": ">=", "value": 0.99 }, "blocking": true },
+        "h2.dedup_recall.edited": { "unit": "ratio" },
+        "h2.edit_cost_kib": { "unit": "KiB", "threshold": { "op": "<=", "value": 512 }, "blocking": true },
+        "h2.penalty_pct.d0": { "unit": "%" },
+        "h2.penalty_pct.d10": { "unit": "%" },
+        "h2.penalty_pct.d20": { "unit": "%", "threshold": { "op": "<=", "value": 0 }, "blocking": true },
+        "h2.penalty_pct.d40": { "unit": "%", "threshold": { "op": "<=", "value": 0 }, "blocking": true },
+        "h2.penalty_pct_ldm.d20": { "unit": "%", "profiles": ["full"] }
+      }
+    },
+    "H3": {
+      "title": "Montage : métadonnées en clair, ouverture linéaire, recherche et lecture 4 KiB bornées",
+      "status": "measured",
+      "metrics": {
+        "h3.metadata_plaintext": { "unit": "bool", "threshold": { "op": "==", "value": 1 }, "blocking": true },
+        "h3.open_ns_per_file": { "unit": "ns" },
+        "h3.open_scaling": { "unit": "x", "threshold": { "op": "<=", "value": 20 }, "blocking": true },
+        "h3.find_ns": { "unit": "ns" },
+        "h3.find_p99_over_blake3_mib": { "unit": "ratio", "threshold": { "op": "<=", "value": 0.05 }, "blocking": true },
+        "h3.read4k_ns": { "unit": "ns" },
+        "h3.chunks_per_read4k.max": { "unit": "chunks", "threshold": { "op": "<=", "value": 2 }, "blocking": true }
+      }
+    },
+    "H4": {
+      "title": "Un montage FUSE/WinFsp lit à la vitesse du décodeur",
+      "status": "not_measured",
+      "reason": "vault-mount n'existe pas encore",
+      "prerequisite": "crate vault-mount (surface mount)"
+    },
+    "H5": {
+      "title": "La parité Reed-Solomon répare dégâts aléatoires et contigus dans son budget, à un coût proche de BLAKE3",
+      "status": "measured",
+      "metrics": {
+        "h5.repair_rate.random5@p10": { "unit": "ratio", "threshold": { "op": "==", "value": 1 }, "blocking": true },
+        "h5.repair_rate.contig10@p10": { "unit": "ratio", "threshold": { "op": "==", "value": 1 }, "blocking": true },
+        "h5.repair_rate.random2@p5": { "unit": "ratio", "threshold": { "op": "==", "value": 1 }, "blocking": true },
+        "h5.repair_rate.contig5@p5": { "unit": "ratio", "threshold": { "op": "==", "value": 1 }, "blocking": true },
+        "h5.build_vs_blake3": { "unit": "x", "threshold": { "op": "<=", "value": 3 }, "blocking": false, "adr": "docs/adr/0003-cout-construction-parite.md" },
+        "h5.build_s_per_gb": { "unit": "s/GB" },
+        "h5.repair_s_per_gb": { "unit": "s/GB" }
+      }
+    },
+    "H6": {
+      "title": "Le delta entre deux archives tient dans les morceaux nouveaux",
+      "status": "not_measured",
+      "reason": "pas de commande delta",
+      "prerequisite": "chantier delta (vault-core)"
+    },
+    "H7": {
+      "title": "Un dictionnaire zstd partagé gagne sur les petits fichiers",
+      "status": "not_measured",
+      "reason": "le format v1 n'embarque pas de dictionnaire",
+      "prerequisite": "ADR dictionnaire + champ de format versionné"
+    },
+    "H8": {
+      "title": "Le décodage sature la bande passante disque sur un cœur",
+      "status": "not_measured",
+      "reason": "nécessite un disque et un hôte de référence stables",
+      "prerequisite": "hôte de mesure dédié (hors CI partagée)"
+    }
+  }
+}

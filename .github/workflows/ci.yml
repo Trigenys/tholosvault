@@ -45,3 +45,27 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace --quiet
       - run: cargo build --workspace --release --quiet
+
+  bench:
+    name: bench (profil ci)
+    needs: impact
+    if: ${{ contains(fromJSON(needs.impact.outputs.gates), 'bench') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bench
+      - name: Thèses H1–H8, profil ci (seuils bloquants)
+        run: cargo run -p vault-bench --release --locked --quiet -- --profile ci --out bench/results --summary-md "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-ci
+          path: |
+            bench/results/ci.json
+            bench/results/ci.csv
