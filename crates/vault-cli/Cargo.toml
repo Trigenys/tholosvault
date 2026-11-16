@@ -1,0 +1,17 @@
+[package]
+name = "vault-cli"
+version = "0.1.0"
+description = "CLI tholos : pack, list, verify, extract."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "tholos"
+path = "src/main.rs"
+
+[dependencies]
+vault-core.workspace = true
+clap.workspace = true
+anyhow.workspace = true

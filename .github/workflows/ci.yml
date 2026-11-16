@@ -1,0 +1,47 @@
+# CI change-scoped : l'analyse d'impact AppFactory décide des gates, chaque job
+# ne tourne que si son gate est requis. Politique : .github/appfactory-impact.json.
+# AppFactory épinglé par SHA revu (main du 2026-11-16, contient reusable-impact-analysis.yml).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  impact:
+    uses: EagleFox31/appfactory-project-automation/.github/workflows/reusable-impact-analysis.yml@3fbf1825593a998e47d72994d4a1034d127bef1c
+    with:
+      appfactory_ref: 3fbf1825593a998e47d72994d4a1034d127bef1c
+      config_path: .github/appfactory-impact.json
+      mode: ${{ github.event_name == 'workflow_dispatch' && 'all' || 'auto' }}
+
+  rust:
+    name: rust (${{ matrix.os }})
+    needs: impact
+    if: ${{ contains(fromJSON(needs.impact.outputs.gates), 'rust') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace --quiet
+      - run: cargo build --workspace --release --quiet

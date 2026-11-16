@@ -1,0 +1,19 @@
+[package]
+name = "vault-core"
+version = "0.1.0"
+description = "Cœur du format tholosvault : CDC, zstd par morceau, Merkle BLAKE3, index en clair."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+fastcdc.workspace = true
+blake3.workspace = true
+zstd.workspace = true
+memmap2.workspace = true
+crc32c.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -39,4 +39,16 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
 
 ## Incidents du projet
 
-*(aucun pour l'instant)*
+### I-001 — Un mmap ouvert verrouille l'archive sous Windows (near miss, 2026-11-16)
+- **Contexte** : le test `trailer_replica_survives_last_copy_corruption` ouvrait une archive (`Archive::open`, mmap
+  lecture seule) puis réécrivait le fichier sans l'avoir fermée. Vert sous Linux, `PermissionDenied` sous Windows :
+  un fichier mappé n'est pas réécrivable tant que la vue existe.
+- **Cause racine** : contrat implicite « archive immuable » non formalisé côté outillage ; les tests supposaient la
+  sémantique POSIX.
+- **Classification** : portabilité / tests.
+- **Résolution** : `drop(ar)` explicite avant toute réécriture dans les tests.
+- **Prévention** : la CI exécute la suite sur `ubuntu-latest` et `windows-latest` ; toute opération qui remplace une
+  archive en place (future `repack`, `compact`) doit écrire dans un fichier temporaire puis renommer, jamais réécrire
+  un fichier potentiellement mappé.
+- **Leçon** : un format fondé sur mmap doit documenter que l'archive est verrouillée tant qu'un lecteur est ouvert, et
+  les tests doivent tourner sur l'OS cible le plus restrictif, pas seulement sur celui du développeur.
