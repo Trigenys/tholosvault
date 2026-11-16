@@ -157,3 +157,18 @@
 **Pièges / contexte**
 - Lire ou poser une clé privée est hors de mon périmètre : seule la commande est fournie. Ne jamais mettre le PEM dans une variable ni dans un fichier du dépôt.
 - `gh api orgs/<org>/installations` liste les Apps installées et leurs permissions : vérifier là avant d'installer quoi que ce soit.
+
+## 2026-11-16 17:45 — Gouvernance continue active via la GitHub App (zéro PAT)
+
+**Objectif en cours** — Gouvernance opérationnelle ; prochaine étape : bench H1–H8, `read_range`, `vault-mount`.
+**Fait**
+- Secret d'org `APPFACTORY_APP_PRIVATE_KEY` posé par l'utilisateur (clé générée dans Credentials → Key pairs de l'App appfactory-bot), visibilité limitée à `tholosvault` ; variable d'org `APPFACTORY_APP_CLIENT_ID` idem. Deux anciennes paires de clés orphelines (fichiers introuvables sur la machine) à supprimer côté App.
+- PR 2 mergée (b603bc8) : workflow en `authentication: github-app`. Premier run annulé : « deadlock detected for concurrency group » car le workflow appelant et le réutilisable déclaraient le même groupe. PR 3 mergée (0121e83) : bloc `concurrency` retiré côté appelant, comme l'exemple appfactory.
+- Runs verts : push (apply) 43910565525 et dispatch (plan) 43910629996 ; jeton d'App révoqué en fin de job. Ruleset 27383387 inchangé.
+**Reste à faire**
+1. Utilisateur : merger la PR 72 du registre ; décider board / releases ; supprimer les 2 clés orphelines de l'App.
+2. Bench H1–H8 ; `read_range` ; `vault-mount`.
+**Pièges / contexte**
+- Ne jamais ajouter de `concurrency` dans un workflow qui appelle `reusable-repository-governance.yml` : le réutilisable le porte déjà.
+- PowerShell refuse `<` : poser un secret depuis un fichier avec `Get-Content -Raw f | gh secret set …`.
+- Clés privées d'App : non retéléchargeables ; vérifier `Credentials → Key pairs` et le disque avant d'en générer.
