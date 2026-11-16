@@ -1,4 +1,4 @@
-# ADR-0002 — Nom public « tholosvault », éditeur Trigenys
+# ADR-0002 — Nom public « tholosvault », éditeur Trigenys Group
 
 - **Statut** : accepté
 - **Date** : 2026-11-16
@@ -9,7 +9,7 @@
   racines gréco-latines (tholosvault, arxvault, custosvault, aerariumvault…) ; nom préfixé par l'éditeur (trigenys-vault).
   Vérifications : dépôts GitHub homonymes, organisation GitHub, crates.io, npm, DNS `.com/.io/.dev/.app` (voir `docs/produit/nom.md`).
 - **Décision** : nom public **tholosvault** (θόλος : édifice à voûte, trésor de Delphes), sans préfixe éditeur ;
-  signature « by Trigenys » sur la landing, les stores, le README et les en-têtes de licence. Commande CLI : `tholos`.
+  signature « by Trigenys Group » sur la landing, les stores, le README et les en-têtes de licence. Commande CLI : `tholos`.
   « VAULT » reste le nom de travail interne (dépôt, crates `vault-*`).
 - **Conséquences** : acheter `tholosvault.com` (+ `.io`, `.dev`) et réserver org GitHub, crate et paquet npm avant toute
   communication ; contrôle de marque INPI / EUIPO ; le renommage des crates en `tholos-*` est possible plus tard par un ADR.

@@ -1,6 +1,6 @@
 # Nom public — tholosvault (décision D11, tranchée le 2026-11-16)
 
-**Retenu : tholosvault**, signature « by Trigenys » (ADR-0002). *Tholos* (grec θόλος) : édifice circulaire à voûte, dont le
+**Retenu : tholosvault**, signature « by Trigenys Group » (ADR-0002). *Tholos* (grec θόλος) : édifice circulaire à voûte, dont le
 trésor de Delphes ; un tholos est littéralement une voûte. Binaire CLI : `tholos` (évite le conflit avec le `vault` de HashiCorp).
 Vérifié le 2026-11-16 : aucun dépôt GitHub homonyme, organisation GitHub libre, crates.io et npm libres, `.com`, `.io`, `.dev`,
 `.app` en NXDOMAIN. À faire avant la landing : acheter `tholosvault.com` (+ `.io`, `.dev`), réserver l'org GitHub, la crate et le

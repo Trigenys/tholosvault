@@ -28,3 +28,7 @@ Journal en ajout seulement. Chaque session ajoute une entrée datée en fin de f
 - D11 tranché : nom public **tholosvault**, « by Trigenys », CLI `tholos` (ADR-0002). VAULT reste le nom de travail interne.
 - `docs/produit/nom.md` : second tour de vérification (12 noms gréco-latins) ; tholosvault entièrement libre, .com inclus.
 - À faire : acheter tholosvault.com/.io/.dev, réserver org GitHub + crate + npm, contrôle de marque.
+
+## 2026-11-16 12:32 — Signature « by Trigenys Group »
+
+- Correction : l'éditeur et la signature sont **Trigenys Group** (pas « Trigenys » seul) dans README, CLAUDE.md, cadrage, nom.md, ADR-0002.

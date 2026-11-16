@@ -1,6 +1,6 @@
 # VAULT — nom public : tholosvault
 
-Éditeur : Trigenys. « tholosvault, by Trigenys » (ADR-0002). VAULT reste le nom de travail interne du dépôt et du cœur.
+Éditeur : Trigenys Group. « tholosvault, by Trigenys Group » (ADR-0002). VAULT reste le nom de travail interne du dépôt et du cœur.
 
 Format d'archive **montable** : découpe par contenu (CDC), compression zstd par morceau avec dictionnaires,
 arbre de Merkle BLAKE3, 3–5 % de parité Reed-Solomon, index lisible par mmap. L'archive se monte comme un
