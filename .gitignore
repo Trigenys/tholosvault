@@ -1,0 +1,11 @@
+target/
+node_modules/
+dist/
+.next/
+build/
+.dart_tool/
+*.vault
+bench/corpus/
+bench/results/*.raw
+.env
+.env.*
