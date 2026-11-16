@@ -1,5 +1,6 @@
 # VAULT — consignes projet
 
+- Nom public : **tholosvault** (éditeur Trigenys, CLI `tholos`, ADR-0002) ; VAULT = nom de travail interne (crates `vault-*`).
 - Produit : format d'archive montable (CDC + zstd + Merkle BLAKE3 + parité RS), cœur Rust unique `vault-core`.
 - Langue : documentation et messages en français ; identifiants de code en anglais.
 - Stack retenue : Rust (core, CLI, mount, API Axum), Tauri 2 + React (desktop), Astro (landing),

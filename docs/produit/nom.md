@@ -1,4 +1,25 @@
-# Nom public — shortlist (décision D11)
+# Nom public — tholosvault (décision D11, tranchée le 2026-11-16)
+
+**Retenu : tholosvault**, signature « by Trigenys » (ADR-0002). *Tholos* (grec θόλος) : édifice circulaire à voûte, dont le
+trésor de Delphes ; un tholos est littéralement une voûte. Binaire CLI : `tholos` (évite le conflit avec le `vault` de HashiCorp).
+Vérifié le 2026-11-16 : aucun dépôt GitHub homonyme, organisation GitHub libre, crates.io et npm libres, `.com`, `.io`, `.dev`,
+`.app` en NXDOMAIN. À faire avant la landing : acheter `tholosvault.com` (+ `.io`, `.dev`), réserver l'org GitHub, la crate et le
+paquet npm, contrôler la marque (INPI / EUIPO).
+
+## Deuxième tour : combinaisons gréco-latines (2026-11-16)
+
+| Nom | Sens | Dépôts | Org | crates / npm | .com | .io/.dev/.app |
+|---|---|---|---|---|---|---|
+| **tholosvault** | tholos : voûte, trésor | aucun | libre | libres | libre | libres |
+| arxvault | arx : citadelle | 1 ★0 | libre | libres | pris | libres |
+| vaultarx | idem | aucun | libre | libres | pris | libres |
+| custosvault | custos : gardien | aucun | libre | libres | pris | libres |
+| aerariumvault | aerarium : trésor public | aucun | libre | libres | libre | libres |
+| cellavault | cella : chambre du temple | aucun | prise | libres | libre | libres |
+| janusvault, vestavault, vaultatlas | mythologie | 1–2 ★0 | libre | libres | pris | libres |
+| arcavault, aegisvault, hermesvault | | collisions | prises | aegis pris | pris | pris |
+
+## Premier tour : noms composés anglais
 
 Vérifications du 2026-11-16 : dépôts GitHub portant exactement le nom, organisation GitHub, crates.io, npm,
 existence DNS des domaines (`NXDOMAIN` = probablement libre, à confirmer chez un registrar avant achat).

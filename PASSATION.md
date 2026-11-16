@@ -22,3 +22,9 @@ Journal en ajout seulement. Chaque session ajoute une entrée datée en fin de f
   rendu final v5 → `docs/media/VAULT-principe-v5.mp4` (38 Mo, suivi par git : passer à Git LFS si d'autres médias arrivent),
   notes de recherche → `docs/recherche/notes/`. Rapport en doublon et anciens rendus supprimés.
 - Reste : D1–D5, D8–D10 ouverts ; CI appfactory ; `vault-core` ; nom public à acheter.
+
+## 2026-11-16 12:29 — Nom public tholosvault
+
+- D11 tranché : nom public **tholosvault**, « by Trigenys », CLI `tholos` (ADR-0002). VAULT reste le nom de travail interne.
+- `docs/produit/nom.md` : second tour de vérification (12 noms gréco-latins) ; tholosvault entièrement libre, .com inclus.
+- À faire : acheter tholosvault.com/.io/.dev, réserver org GitHub + crate + npm, contrôle de marque.

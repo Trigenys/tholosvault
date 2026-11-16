@@ -1,4 +1,6 @@
-# VAULT
+# VAULT — nom public : tholosvault
+
+Éditeur : Trigenys. « tholosvault, by Trigenys » (ADR-0002). VAULT reste le nom de travail interne du dépôt et du cœur.
 
 Format d'archive **montable** : découpe par contenu (CDC), compression zstd par morceau avec dictionnaires,
 arbre de Merkle BLAKE3, 3–5 % de parité Reed-Solomon, index lisible par mmap. L'archive se monte comme un
@@ -17,7 +19,7 @@ documentation produit et technique.
 | [docs/recherche/](docs/recherche/) | Rapport *Archives montables et compression prospective* : état de l'art, thèses H1–H8, innovations E1–E5, protocole MVP |
 | [docs/engineering/lessons-learned.md](docs/engineering/lessons-learned.md) | Mémoire des échecs et leçons |
 | [docs/adr/](docs/adr/) | Décisions d'architecture (ADR-0001 : open core, Apache-2.0) |
-| [docs/produit/nom.md](docs/produit/nom.md) | Shortlist de noms publics vérifiée (D11) |
+| [docs/produit/nom.md](docs/produit/nom.md) | Nom public tholosvault : vérifications et shortlist (D11) |
 | [apps/landing/video/](apps/landing/video/) | Source HyperFrames de la vidéo « VAULT, le principe » ; rendu final dans `docs/media/` |
 | [PASSATION.md](PASSATION.md) | Journal de passation (ajout seulement) |
 
@@ -26,7 +28,7 @@ documentation produit et technique.
 ```
 crates/
   vault-core/      format : CDC, zstd, Merkle, parité, index (bibliothèque Rust)
-  vault-cli/       binaire `vault` : create, mount, verify, repair, delta, ls, cat
+  vault-cli/       binaire `tholos` : create, mount, verify, repair, delta, ls, cat
   vault-mount/     adaptateurs FUSE / WinFsp / FSKit / ProjFS
   vault-api/       API de la console web (Axum), réutilise vault-core
 apps/

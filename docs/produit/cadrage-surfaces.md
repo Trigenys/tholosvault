@@ -211,7 +211,7 @@ Légende : ● MVP · ◐ V1 · ○ Plus tard · — non prévu.
 | D8 | Voie Windows par défaut | WinFsp (montage) vs ProjFS + WOF (hydratation) | WinFsp par défaut, ProjFS + WOF proposé dès qu'un exécutable de jeu est détecté ; trancher sur H7 | après matrice H7 |
 | D9 | Signature et distribution desktop | Certificat EV Windows + notarisation Apple vs non signé (MVP) | Non signé en MVP (utilisateurs techniques), signé en V1 | V1 |
 | D10 | Télémétrie | Aucune vs opt-in auto-hébergée (Umami / OpenTelemetry) | Opt-in, auto-hébergée, agrégée ; jamais de chemin de fichier | MVP |
-| D11 | Nom et domaine | « VAULT » est très générique (HashiCorp Vault, Obsidian « vault ») | Nom composé : shortlist vérifiée dans `docs/produit/nom.md` (reco chunkvault ou vaultfs) ; VAULT reste le nom de travail | avant la landing |
+| D11 | Nom et domaine | « VAULT » est très générique (HashiCorp Vault, Obsidian « vault ») | **Tranché 2026-11-16 (ADR-0002)** : nom public **tholosvault**, éditeur Trigenys, CLI `tholos` ; VAULT reste le nom de travail interne. Détail : `docs/produit/nom.md` | — |
 
 ## 9. Hors périmètre déclaré
 
