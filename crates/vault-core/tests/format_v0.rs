@@ -1,52 +1,22 @@
 //! Tests de non-régression du format v0 : aller-retour, déterminisme (L-001),
 //! métadonnées lisibles malgré des données corrompues (L-002), détection de
-//! corruption (L-004, détection seulement), trailer répliqué.
+//! corruption (L-004, détection seulement), trailer répliqué. La suite tourne
+//! avec et sans section de parité : les contrats v0 restent verts en v1.
+
+mod common;
 
 use std::fs;
-use std::path::{Path, PathBuf};
 
+use common::{fixture, pack, pack_with};
 use vault_core::format::{HEADER_LEN, TRAILER_LEN};
-use vault_core::{pack_dir, Archive, Error, PackOptions};
+use vault_core::{Archive, Error, PackOptions, ParityOptions};
 
-fn pseudo_random(len: usize, seed: u64) -> Vec<u8> {
-    let mut x = seed | 1;
-    (0..len)
-        .map(|_| {
-            x ^= x << 13;
-            x ^= x >> 7;
-            x ^= x << 17;
-            (x & 0xff) as u8
-        })
-        .collect()
-}
-
-/// Arbre de test : binaire 1 MiB, texte répétitif, doublon exact, fichier vide,
-/// sous-répertoire. Retourne (racine, liste (chemin relatif, contenu)).
-fn fixture(dir: &Path) -> Vec<(String, Vec<u8>)> {
-    let random = pseudo_random(1024 * 1024 + 123, 42);
-    let text: Vec<u8> = "ligne de texte assez redondante pour zstd\n"
-        .repeat(5000)
-        .into_bytes();
-    let files = vec![
-        ("binaire.bin".to_string(), random.clone()),
-        ("docs/notes.txt".to_string(), text.clone()),
-        ("docs/notes-copie.txt".to_string(), text),
-        ("vide".to_string(), Vec::new()),
-        ("z/profond/petit.dat".to_string(), b"abc".to_vec()),
-        ("binaire-bis.bin".to_string(), random),
-    ];
-    for (rel, data) in &files {
-        let p = dir.join(rel);
-        fs::create_dir_all(p.parent().unwrap()).unwrap();
-        fs::write(p, data).unwrap();
+/// Options v0 : aucune section de parité.
+fn v0() -> PackOptions {
+    PackOptions {
+        parity: ParityOptions::disabled(),
+        ..PackOptions::default()
     }
-    files
-}
-
-fn pack(src: &Path, name: &str) -> (PathBuf, vault_core::PackSummary) {
-    let dst = src.parent().unwrap().join(name);
-    let summary = pack_dir(src, &dst, &PackOptions::default()).unwrap();
-    (dst, summary)
 }
 
 #[test]
@@ -55,7 +25,7 @@ fn roundtrip_lists_reads_and_verifies() {
     let src = tmp.path().join("src");
     fs::create_dir(&src).unwrap();
     let mut files = fixture(&src);
-    let (dst, summary) = pack(&src, "a.tholos");
+    let (dst, summary) = pack_with(&src, "a.tholos", &v0());
 
     let ar = Archive::open(&dst).unwrap();
     files.sort_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));

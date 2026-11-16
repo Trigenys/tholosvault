@@ -1,9 +1,16 @@
 //! Lecture d'une archive par mmap. Les métadonnées sont lues sans décompresser
 //! un seul morceau (L-002) ; la décompression n'a lieu qu'à la lecture d'un
 //! fichier ou à la vérification.
+//!
+//! Réparation (v1) : [`scan_file`] et [`repair_file`] travaillent sur le chemin,
+//! sans exiger que l'en-tête ou les tables soient lisibles. La réparation écrit
+//! une copie temporaire puis la renomme : jamais de réécriture d'un fichier
+//! potentiellement mappé (I-001).
 
 use std::fs;
-use std::path::Path;
+use std::io::{Seek, SeekFrom, Write};
+use std::ops::Range;
+use std::path::{Path, PathBuf};
 
 use memmap2::Mmap;
 
@@ -11,6 +18,7 @@ use crate::codec;
 use crate::error::{Error, Result};
 use crate::format::{self, Header, Trailer, HEADER_LEN, TRAILER_COPIES, TRAILER_LEN};
 use crate::merkle::{self, Hash};
+use crate::parity::{self, Damage, ParitySection, Patch};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChunkEntry {
@@ -36,88 +44,86 @@ pub struct VerifyReport {
     /// Chemins des fichiers dont la racine de Merkle ne correspond pas.
     pub bad_files: Vec<String>,
     pub archive_root_ok: bool,
+    /// Bilan à la granularité des shards (parité, trailer). `None` tant que
+    /// `verify` n'a pas été appelé.
+    pub damage: Option<Damage>,
 }
 
 impl VerifyReport {
+    /// Contenu intègre (indépendamment de l'état de la parité ou des copies du trailer).
     pub fn is_ok(&self) -> bool {
         self.bad_chunks.is_empty() && self.bad_files.is_empty() && self.archive_root_ok
     }
+
+    /// Vrai si l'archive est saine ou si tout dégât constaté est reconstructible.
+    pub fn repairable(&self) -> bool {
+        match &self.damage {
+            Some(d) => d.repairable,
+            None => self.is_ok(),
+        }
+    }
 }
 
-pub struct Archive {
-    map: Mmap,
-    header: Header,
-    trailer: Trailer,
+/// Résultat d'une réparation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RepairReport {
+    pub damage: Damage,
+    /// Shards (données + parité) réécrits.
+    pub patched_shards: u64,
+    pub trailer_copies_restored: u8,
+    /// Faux si rien n'était à réparer (aucune écriture).
+    pub rewritten: bool,
+    pub verify_after: VerifyReport,
+}
+
+struct Tables {
     chunks: Vec<ChunkEntry>,
     files: Vec<FileEntry>,
     /// (hash, index) trié par hash.
     hash_table: Vec<(Hash, u32)>,
 }
 
+pub struct Archive {
+    path: PathBuf,
+    map: Mmap,
+    header: Header,
+    trailer: Trailer,
+    bad_trailer_copies: u8,
+    chunks: Vec<ChunkEntry>,
+    files: Vec<FileEntry>,
+    hash_table: Vec<(Hash, u32)>,
+}
+
 impl Archive {
     pub fn open(path: &Path) -> Result<Self> {
-        let file = fs::File::open(path).map_err(|e| Error::io(path, e))?;
-        // Sûreté : lecture seule ; une modification concurrente du fichier est
-        // hors contrat (archive immuable par conception).
-        let map = unsafe { Mmap::map(&file) }.map_err(|e| Error::io(path, e))?;
-        Self::from_mmap(map)
+        let map = map_file(path)?;
+        Self::from_mmap(path.to_path_buf(), map)
     }
 
-    fn from_mmap(map: Mmap) -> Result<Self> {
-        let len = map.len() as u64;
-        let min = (HEADER_LEN + TRAILER_LEN * TRAILER_COPIES) as u64;
-        if len < min {
-            return Err(Error::TooShort { len });
-        }
+    fn from_mmap(path: PathBuf, map: Mmap) -> Result<Self> {
+        check_min_len(&map)?;
         let header = Header::decode(&map[..HEADER_LEN])?;
-        let trailer = read_trailer(&map).ok_or(Error::NoValidTrailer)?;
-
-        let chunk_bytes = section(
-            &map,
-            "index morceaux",
-            trailer.chunk_index_off,
-            trailer.chunk_index_len,
-        )?;
-        let chunks = parse_chunks(chunk_bytes, trailer.chunk_count)?;
-
-        let file_bytes = section(
-            &map,
-            "table fichiers",
-            trailer.file_table_off,
-            trailer.file_table_len,
-        )?;
-        let files = parse_files(file_bytes, trailer.file_count, chunks.len())?;
-
-        let hash_bytes = section(
-            &map,
-            "table hachage",
-            trailer.hash_table_off,
-            trailer.hash_table_len,
-        )?;
-        let hash_table = parse_hash_table(hash_bytes, chunks.len())?;
-
-        for (i, c) in chunks.iter().enumerate() {
-            let end = c.offset.saturating_add(c.compressed_len as u64);
-            if c.offset < HEADER_LEN as u64 || end > trailer.chunk_index_off {
-                return Err(Error::MalformedSection {
-                    section: "index morceaux",
-                    detail: format!("morceau {i} hors de la zone de données"),
-                });
-            }
-        }
-
+        let (trailer, bad_trailer_copies) = read_trailers(&map);
+        let trailer = trailer.ok_or(Error::NoValidTrailer)?;
+        let tables = parse_tables(&map, &trailer)?;
         Ok(Self {
+            path,
             map,
             header,
             trailer,
-            chunks,
-            files,
-            hash_table,
+            bad_trailer_copies,
+            chunks: tables.chunks,
+            files: tables.files,
+            hash_table: tables.hash_table,
         })
     }
 
     pub fn header(&self) -> &Header {
         &self.header
+    }
+
+    pub fn trailer(&self) -> &Trailer {
+        &self.trailer
     }
 
     pub fn archive_root(&self) -> &Hash {
@@ -130,6 +136,11 @@ impl Archive {
 
     pub fn chunks(&self) -> &[ChunkEntry] {
         &self.chunks
+    }
+
+    /// Vrai si l'archive porte une section de parité.
+    pub fn has_parity(&self) -> bool {
+        self.trailer.parity_len > 0
     }
 
     pub fn find(&self, path: &str) -> Option<&FileEntry> {
@@ -155,18 +166,7 @@ impl Archive {
                 section: "index morceaux",
                 detail: format!("indice {index} hors table"),
             })?;
-        let start = c.offset as usize;
-        let frame = &self.map[start..start + c.compressed_len as usize];
-        let data = codec::decompress(frame, c.len as usize, index)?;
-        let actual = merkle::chunk_id(&data);
-        if actual != c.hash {
-            return Err(Error::ChunkMismatch {
-                index,
-                expected: merkle::to_hex(&c.hash),
-                actual: merkle::to_hex(&actual),
-            });
-        }
-        Ok(data)
+        read_chunk_raw(&self.map, c, index)
     }
 
     /// Contenu complet d'un fichier, vérifié morceau par morceau.
@@ -181,7 +181,8 @@ impl Archive {
         Ok(out)
     }
 
-    /// Vérifie tous les morceaux, toutes les racines de fichier et la racine d'archive.
+    /// Vérifie tous les morceaux, toutes les racines de fichier, la racine
+    /// d'archive, puis établit le bilan des dégâts et sa réparabilité.
     pub fn verify(&self) -> VerifyReport {
         let mut report = VerifyReport::default();
         for i in 0..self.chunks.len() as u32 {
@@ -209,16 +210,250 @@ impl Archive {
             leaves.push(merkle::file_leaf(&f.path, f.size, &f.root));
         }
         report.archive_root_ok = merkle::merkle_root(&leaves) == self.trailer.archive_root;
+
+        let ranges = chunk_ranges(&self.chunks, &report.bad_chunks);
+        let mut damage = scan_map(&self.map, &self.trailer, &ranges, self.bad_trailer_copies);
+        if damage.geometry.is_none() {
+            damage.repairable = report.is_ok();
+        }
+        report.damage = Some(damage);
         report
+    }
+
+    /// Répare l'archive sur disque (ferme la vue mmap, cf. I-001) et renvoie le bilan.
+    pub fn repair(self) -> Result<RepairReport> {
+        let path = self.path.clone();
+        drop(self);
+        repair_file(&path)
     }
 }
 
-fn read_trailer(map: &[u8]) -> Option<Trailer> {
-    let len = map.len();
-    (1..=TRAILER_COPIES).find_map(|k| {
-        let end = len - TRAILER_LEN * (k - 1);
-        Trailer::decode(&map[end - TRAILER_LEN..end])
+/// Bilan des dégâts d'une archive, même quand l'en-tête ou les tables sont illisibles.
+pub fn scan_file(path: &Path) -> Result<Damage> {
+    let map = map_file(path)?;
+    check_min_len(&map)?;
+    let (trailer, bad_copies) = read_trailers(&map);
+    let trailer = trailer.ok_or(Error::NoValidTrailer)?;
+    let ranges = bad_chunk_ranges(&map, &trailer);
+    Ok(scan_map(&map, &trailer, &ranges, bad_copies))
+}
+
+/// Reconstruit les shards effacés et les copies du trailer détruites, par
+/// copie temporaire puis renommage. Sans écriture si rien n'est à réparer ou
+/// si les dégâts dépassent la parité disponible.
+pub fn repair_file(path: &Path) -> Result<RepairReport> {
+    let (damage, patches) = {
+        let map = map_file(path)?;
+        check_min_len(&map)?;
+        let (trailer, bad_copies) = read_trailers(&map);
+        let trailer = trailer.ok_or(Error::NoValidTrailer)?;
+        let ranges = bad_chunk_ranges(&map, &trailer);
+        let damage = scan_map(&map, &trailer, &ranges, bad_copies);
+        if !damage.repairable {
+            return Err(damage.unrepairable_error());
+        }
+        let mut patches = Vec::new();
+        if !damage.bad_data_shards.is_empty() || !damage.bad_parity_shards.is_empty() {
+            let (protected, section_bytes) = split_protected(&map, &trailer)?;
+            let sec = ParitySection::parse(section_bytes, protected.len() as u64)?;
+            patches = parity::reconstruct(protected, &sec, trailer.parity_off(), &damage)?;
+        }
+        let encoded = trailer.encode();
+        let len = map.len();
+        for k in 1..=TRAILER_COPIES {
+            let end = len - TRAILER_LEN * (k - 1);
+            let slot = &map[end - TRAILER_LEN..end];
+            if slot != encoded {
+                patches.push(Patch {
+                    offset: (end - TRAILER_LEN) as u64,
+                    bytes: encoded.to_vec(),
+                });
+            }
+        }
+        (damage, patches)
+    };
+
+    let patched_shards = (damage.bad_data_shards.len() + damage.bad_parity_shards.len()) as u64;
+    let trailer_copies_restored = (patches.len() as u64 - patched_shards) as u8;
+    let rewritten = !patches.is_empty();
+    if rewritten {
+        apply_patches(path, &patches)?;
+    }
+    let verify_after = Archive::open(path)?.verify();
+    Ok(RepairReport {
+        damage,
+        patched_shards,
+        trailer_copies_restored,
+        rewritten,
+        verify_after,
     })
+}
+
+fn apply_patches(path: &Path, patches: &[Patch]) -> Result<()> {
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".tmp");
+    let tmp = PathBuf::from(tmp);
+    let io_tmp = |e| Error::io(&tmp, e);
+    fs::copy(path, &tmp).map_err(io_tmp)?;
+    {
+        let mut f = fs::OpenOptions::new()
+            .write(true)
+            .open(&tmp)
+            .map_err(io_tmp)?;
+        for p in patches {
+            f.seek(SeekFrom::Start(p.offset)).map_err(io_tmp)?;
+            f.write_all(&p.bytes).map_err(io_tmp)?;
+        }
+        f.sync_all().map_err(io_tmp)?;
+    }
+    fs::rename(&tmp, path).map_err(|e| Error::io(path, e))
+}
+
+fn map_file(path: &Path) -> Result<Mmap> {
+    let file = fs::File::open(path).map_err(|e| Error::io(path, e))?;
+    // Sûreté : lecture seule ; une modification concurrente du fichier est
+    // hors contrat (archive immuable par conception, verrouillée tant qu'une
+    // vue existe, cf. I-001).
+    unsafe { Mmap::map(&file) }.map_err(|e| Error::io(path, e))
+}
+
+fn check_min_len(map: &[u8]) -> Result<()> {
+    let len = map.len() as u64;
+    let min = (HEADER_LEN + TRAILER_LEN * TRAILER_COPIES) as u64;
+    if len < min {
+        return Err(Error::TooShort { len });
+    }
+    Ok(())
+}
+
+/// Zone protégée et octets de la section de parité (vide en v0).
+fn split_protected<'a>(map: &'a [u8], trailer: &Trailer) -> Result<(&'a [u8], &'a [u8])> {
+    let off = trailer.parity_off();
+    let section_bytes = section(map, "parité", off, trailer.parity_len)?;
+    let max = (map.len() - TRAILER_LEN * TRAILER_COPIES) as u64;
+    if off + trailer.parity_len > max {
+        return Err(Error::SectionOutOfBounds {
+            section: "parité",
+            offset: off,
+            len: trailer.parity_len,
+            file_len: map.len() as u64,
+        });
+    }
+    Ok((&map[..off as usize], section_bytes))
+}
+
+fn scan_map(map: &[u8], trailer: &Trailer, ranges: &[Range<u64>], bad_copies: u8) -> Damage {
+    let Ok((protected, section_bytes)) = split_protected(map, trailer) else {
+        return parity::scan(&[], None, ranges, bad_copies);
+    };
+    if trailer.parity_len == 0 {
+        return parity::scan(protected, None, ranges, bad_copies);
+    }
+    match ParitySection::parse(section_bytes, protected.len() as u64) {
+        Ok(sec) => parity::scan(protected, Some(&sec), ranges, bad_copies),
+        Err(_) => {
+            let mut d = parity::scan(protected, None, ranges, bad_copies);
+            // Section présente mais illisible : rien n'est reconstructible.
+            d.repairable = false;
+            d
+        }
+    }
+}
+
+/// Intervalles d'octets des morceaux dont le hachage ne correspond pas, si les
+/// tables sont lisibles ; vide sinon (les CRC par shard restent la référence).
+fn bad_chunk_ranges(map: &[u8], trailer: &Trailer) -> Vec<Range<u64>> {
+    let Ok(tables) = parse_tables(map, trailer) else {
+        return Vec::new();
+    };
+    let bad: Vec<u32> = (0..tables.chunks.len() as u32)
+        .filter(|&i| read_chunk_raw(map, &tables.chunks[i as usize], i).is_err())
+        .collect();
+    chunk_ranges(&tables.chunks, &bad)
+}
+
+fn chunk_ranges(chunks: &[ChunkEntry], bad: &[u32]) -> Vec<Range<u64>> {
+    bad.iter()
+        .map(|&i| {
+            let c = &chunks[i as usize];
+            c.offset..c.offset + c.compressed_len as u64
+        })
+        .collect()
+}
+
+fn read_chunk_raw(map: &[u8], c: &ChunkEntry, index: u32) -> Result<Vec<u8>> {
+    let start = c.offset as usize;
+    let frame = &map[start..start + c.compressed_len as usize];
+    let data = codec::decompress(frame, c.len as usize, index)?;
+    let actual = merkle::chunk_id(&data);
+    if actual != c.hash {
+        return Err(Error::ChunkMismatch {
+            index,
+            expected: merkle::to_hex(&c.hash),
+            actual: merkle::to_hex(&actual),
+        });
+    }
+    Ok(data)
+}
+
+fn parse_tables(map: &[u8], trailer: &Trailer) -> Result<Tables> {
+    let chunk_bytes = section(
+        map,
+        "index morceaux",
+        trailer.chunk_index_off,
+        trailer.chunk_index_len,
+    )?;
+    let chunks = parse_chunks(chunk_bytes, trailer.chunk_count)?;
+
+    let file_bytes = section(
+        map,
+        "table fichiers",
+        trailer.file_table_off,
+        trailer.file_table_len,
+    )?;
+    let files = parse_files(file_bytes, trailer.file_count, chunks.len())?;
+
+    let hash_bytes = section(
+        map,
+        "table hachage",
+        trailer.hash_table_off,
+        trailer.hash_table_len,
+    )?;
+    let hash_table = parse_hash_table(hash_bytes, chunks.len())?;
+
+    for (i, c) in chunks.iter().enumerate() {
+        let end = c.offset.saturating_add(c.compressed_len as u64);
+        if c.offset < HEADER_LEN as u64 || end > trailer.chunk_index_off {
+            return Err(Error::MalformedSection {
+                section: "index morceaux",
+                detail: format!("morceau {i} hors de la zone de données"),
+            });
+        }
+    }
+    Ok(Tables {
+        chunks,
+        files,
+        hash_table,
+    })
+}
+
+/// Trailer valide (dernière copie d'abord) et nombre de copies illisibles.
+fn read_trailers(map: &[u8]) -> (Option<Trailer>, u8) {
+    let len = map.len();
+    let mut found = None;
+    let mut bad = 0u8;
+    for k in 1..=TRAILER_COPIES {
+        let end = len - TRAILER_LEN * (k - 1);
+        match Trailer::decode(&map[end - TRAILER_LEN..end]) {
+            Some(t) => {
+                if found.is_none() {
+                    found = Some(t);
+                }
+            }
+            None => bad += 1,
+        }
+    }
+    (found, bad)
 }
 
 fn section<'a>(map: &'a [u8], name: &'static str, off: u64, len: u64) -> Result<&'a [u8]> {

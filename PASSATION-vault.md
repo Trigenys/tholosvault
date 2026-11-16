@@ -57,3 +57,35 @@
 - fastcdc 5 prend des `usize` ; l'en-tête stocke des `u32` (conversion explicite dans `chunk.rs`).
 - Sous Windows, fermer l'`Archive` (drop) avant de réécrire le fichier.
 - Heredocs Bash avec apostrophes françaises peu fiables ici : passer par l'outil d'écriture de fichiers.
+
+## 2026-11-16 14:50 — Format v1 : parité Reed-Solomon et injection de corruptions (L-004)
+
+**Fait**
+- `FORMAT_VERSION = 1`, `MIN_FORMAT_VERSION = 0` : le lecteur accepte v0 et v1 ; le trailer porte `parity_len`
+  (octets 112..120, nuls en v0). Spéc : `docs/format/spec-v1.md` (+ renvoi dans `spec-v0.md`).
+- `vault-core/src/parity.rs` : `ParityOptions { percent (5 %), shard_size (4 KiB), group_max (1024) }`,
+  `Geometry` (N shards, G groupes entrelacés, m = ⌈k·pct/100⌉ + 1 parités), `build_section` (en-tête `THOLOSPR`
+  + CRC32C par shard + parités, slot `j·G+g`), `ParitySection::parse`, `scan` → `Damage` (réparable / non),
+  `reconstruct` → `Patch`. Reuse-first : Adopt `reed-solomon-simd` 3.1 (Leopard-RS, GF(2^16)).
+- Parité calculée sur les octets tels qu'écrits (en-tête + frames + index + tables), relus par mmap du fichier
+  en cours d'écriture (ouvert lecture + écriture). `PackOptions.parity`, `PackSummary.parity_bytes`.
+- `reader.rs` : `VerifyReport.damage` + `repairable()` (`is_ok()` inchangé) ; `scan_file`, `repair_file`
+  (copie `<chemin>.tmp` → patches → `rename`, I-001 ; no-op si rien à réparer ; `Unrepairable` / `NoParity` /
+  `NoValidTrailer` sans écriture), `Archive::repair(self)`, `has_parity()`, `trailer()`.
+- CLI : `tholos pack --parity <PCT>` (0 désactive), `tholos repair`, `tholos verify` affiche « réparable /
+  non réparable » et retombe sur `scan_file` si l'ouverture échoue. Fumée : 2 % contigus + trailer → réparé → OK.
+- Tests : `tests/common/mod.rs` partagé ; `tests/parity_v1.rs` (12) : archive saine, déterminisme, v0 relu,
+  aléatoire 1 % / 2 % / 5 % (budget 15 %), contigu 1-3-5 % / 10 % (budget 15 %), en-tête + index détruits,
+  trailer (1 copie restaurée, 2 → `NoValidTrailer`), au-delà du budget sans écriture, sans parité → `NoParity`.
+  Les 7 tests v0 restent verts (dont un en options v0 pures). fmt, clippy -D warnings, test workspace : OK.
+**Décisions**
+- Section en clair auto-vérifiée (CRC en-tête + CRC tables) ; géométrie recalculée depuis le trailer et refusée
+  si l'en-tête la contredit. Section illisible = dégâts non réparables (pas de devinette).
+- Repli hachage → shards : un morceau au BLAKE3 faux sans shard CRC-faux voit tous ses shards marqués effacés.
+**Reste à faire**
+1. Balayage de secours du trailer quand les deux copies sont détruites (non réparable aujourd'hui).
+2. Bench du coût de `build_section` sur gros corpus (`bench/`) ; parité par flux pour éviter le mmap d'écriture.
+3. Items 1, 3-5 de l'entrée précédente (remote GitHub, bench H1–H8, `read_range`, réservations).
+**Pièges**
+- `reed-solomon-simd` exige des shards pairs et non vides ; `decode` ne renvoie que les originaux manquants.
+- clippy `single_range_in_vec_init` : construire un `Vec<Range>` d'un élément via `iter::once(..).collect()`.

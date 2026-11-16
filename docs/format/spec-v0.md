@@ -1,7 +1,9 @@
 # Format tholosvault — version 0 (brouillon)
 
-Statut : **brouillon, non publié**. Toute archive v0 peut être invalidée par la v1. Le format est figé à la
-première publication du CLI ; jusque-là, cette page suit le code de `crates/vault-core`.
+Statut : **brouillon, non publié**. Le format est figé à la première publication du CLI ; jusque-là, cette page
+suit le code de `crates/vault-core`. La **version 1** (`spec-v1.md`) ajoute une section de parité Reed-Solomon
+avant le trailer et affecte les octets 112..120 du trailer à sa longueur ; les archives v0 restent lisibles
+(longueur de parité nulle).
 
 ## Objectifs couverts par la v0
 
@@ -65,7 +67,7 @@ Entiers little-endian. Longueurs en octets.
 | 64 | 8 | nombre de fichiers |
 | 72 | 32 | racine d'archive |
 | 104 | 8 | longueur de la zone de données |
-| 112 | 12 | réservé |
+| 112 | 12 | réservé (v1 : 112..120 = longueur de la section de parité, 0 en v0) |
 | 124 | 4 | CRC32C des octets 0..124 |
 
 Le lecteur essaie la dernière copie puis l'avant-dernière ; aucune valide → erreur explicite.

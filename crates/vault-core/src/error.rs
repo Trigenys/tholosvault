@@ -17,8 +17,8 @@ pub enum Error {
     #[error("en-tête invalide : {0}")]
     BadHeader(&'static str),
 
-    #[error("version de format {found} non prise en charge (attendu {expected})")]
-    UnsupportedVersion { found: u16, expected: u16 },
+    #[error("version de format {found} non prise en charge (maximum {max_supported})")]
+    UnsupportedVersion { found: u16, max_supported: u16 },
 
     #[error("aucun trailer valide trouvé (les deux copies sont corrompues)")]
     NoValidTrailer,
@@ -69,6 +69,18 @@ pub enum Error {
 
     #[error("paramètres de découpage invalides : {0}")]
     BadChunkParams(&'static str),
+
+    #[error("paramètres de parité invalides : {0}")]
+    BadParityParams(&'static str),
+
+    #[error("archive sans section de parité : corruption détectée mais non réparable")]
+    NoParity,
+
+    #[error("corruption non réparable : groupe {group} avec {erased} shards effacés pour {max} de parité")]
+    Unrepairable { group: u64, erased: u64, max: u32 },
+
+    #[error("calcul Reed-Solomon impossible : {0}")]
+    ReedSolomon(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

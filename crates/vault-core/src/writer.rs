@@ -14,11 +14,14 @@ use crate::codec;
 use crate::error::{Error, Result};
 use crate::format::{self, Header, Trailer, HEADER_LEN, MAX_PATH_LEN};
 use crate::merkle::{self, Hash};
+use crate::parity::{self, ParityOptions};
 
 #[derive(Debug, Clone)]
 pub struct PackOptions {
     pub level: i32,
     pub chunk: ChunkParams,
+    /// Parité Reed-Solomon (v1) ; `percent: 0` n'écrit aucune section.
+    pub parity: ParityOptions,
 }
 
 impl Default for PackOptions {
@@ -26,6 +29,7 @@ impl Default for PackOptions {
         Self {
             level: codec::DEFAULT_LEVEL,
             chunk: ChunkParams::default(),
+            parity: ParityOptions::default(),
         }
     }
 }
@@ -38,6 +42,8 @@ pub struct PackSummary {
     pub total_chunk_refs: u64,
     pub compressed_bytes: u64,
     pub archive_bytes: u64,
+    /// Taille de la section de parité (0 si désactivée).
+    pub parity_bytes: u64,
     pub archive_root: Hash,
 }
 
@@ -59,9 +65,17 @@ struct FileRecord {
 /// dans le fichier `dst`. Écrase `dst` s'il existe.
 pub fn pack_dir(src_dir: &Path, dst: &Path, opts: &PackOptions) -> Result<PackSummary> {
     opts.chunk.validate()?;
+    opts.parity.validate()?;
     let paths = collect_files(src_dir)?;
 
-    let out = fs::File::create(dst).map_err(|e| Error::io(dst, e))?;
+    // Lecture + écriture : la zone protégée est relue par mmap pour la parité.
+    let out = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(dst)
+        .map_err(|e| Error::io(dst, e))?;
     let mut w = BufWriter::new(out);
 
     let header = Header {
@@ -165,6 +179,20 @@ pub fn pack_dir(src_dir: &Path, dst: &Path, opts: &PackOptions) -> Result<PackSu
     w.write_all(&buf).map_err(|e| Error::io(dst, e))?;
     let hash_table_len = buf.len() as u64;
 
+    // Parité (v1) : calculée sur tout ce qui précède, octets tels qu'écrits.
+    let protected_len = hash_table_off + hash_table_len;
+    let mut parity_len = 0u64;
+    if opts.parity.is_enabled() {
+        w.flush().map_err(|e| Error::io(dst, e))?;
+        let section = {
+            // Sûreté : fichier ouvert par nous seuls, aucune écriture pendant la vue.
+            let map = unsafe { memmap2::Mmap::map(w.get_ref()) }.map_err(|e| Error::io(dst, e))?;
+            parity::build_section(&map[..protected_len as usize], &opts.parity)?
+        };
+        w.write_all(&section).map_err(|e| Error::io(dst, e))?;
+        parity_len = section.len() as u64;
+    }
+
     let archive_root = merkle::merkle_root(&file_leaves);
     let trailer = Trailer {
         chunk_index_off,
@@ -177,6 +205,7 @@ pub fn pack_dir(src_dir: &Path, dst: &Path, opts: &PackOptions) -> Result<PackSu
         file_count: files.len() as u64,
         archive_root,
         data_len,
+        parity_len,
     }
     .encode();
     for _ in 0..format::TRAILER_COPIES {
@@ -185,7 +214,7 @@ pub fn pack_dir(src_dir: &Path, dst: &Path, opts: &PackOptions) -> Result<PackSu
     w.flush().map_err(|e| Error::io(dst, e))?;
 
     let archive_bytes =
-        hash_table_off + hash_table_len + (format::TRAILER_LEN * format::TRAILER_COPIES) as u64;
+        protected_len + parity_len + (format::TRAILER_LEN * format::TRAILER_COPIES) as u64;
     Ok(PackSummary {
         files: files.len() as u64,
         input_bytes,
@@ -193,6 +222,7 @@ pub fn pack_dir(src_dir: &Path, dst: &Path, opts: &PackOptions) -> Result<PackSu
         total_chunk_refs: total_refs,
         compressed_bytes: data_len,
         archive_bytes,
+        parity_bytes: parity_len,
         archive_root,
     })
 }

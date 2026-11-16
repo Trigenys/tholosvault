@@ -1,16 +1,22 @@
-//! Agencement binaire du format v0. Tous les entiers sont little-endian.
+//! Agencement binaire du format (v0 et v1). Tous les entiers sont little-endian.
 //! Les sections de métadonnées sont en clair (L-002) et lisibles par mmap.
 //!
 //! ```text
-//! [en-tête 64 o][frames zstd…][index morceaux][table fichiers][table hachage][trailer 128 o][trailer 128 o]
+//! [en-tête 64 o][frames zstd…][index morceaux][table fichiers][table hachage][parité (v1)][trailer 128 o][trailer 128 o]
 //! ```
+//!
+//! La v1 ajoute une section de parité Reed-Solomon (module `parity`) dont la
+//! longueur occupe les octets 112..120 du trailer, réservés (à zéro) en v0 : une
+//! archive v0 se lit donc comme une archive v1 sans parité.
 
 use crate::error::{Error, Result};
 use crate::merkle::Hash;
 
 pub const MAGIC: [u8; 8] = *b"THOLOSVT";
 pub const TRAILER_MAGIC: [u8; 8] = *b"THOLOSTR";
-pub const FORMAT_VERSION: u16 = 0;
+pub const FORMAT_VERSION: u16 = 1;
+/// Plus ancienne version encore lue par ce cœur.
+pub const MIN_FORMAT_VERSION: u16 = 0;
 pub const HEADER_LEN: usize = 64;
 pub const TRAILER_LEN: usize = 128;
 pub const TRAILER_COPIES: usize = 2;
@@ -56,10 +62,10 @@ impl Header {
             return Err(Error::BadHeader("nombre magique absent"));
         }
         let format_version = u16_at(b, 8);
-        if format_version != FORMAT_VERSION {
+        if !(MIN_FORMAT_VERSION..=FORMAT_VERSION).contains(&format_version) {
             return Err(Error::UnsupportedVersion {
                 found: format_version,
-                expected: FORMAT_VERSION,
+                max_supported: FORMAT_VERSION,
             });
         }
         let mut dict_id = [0u8; 32];
@@ -90,9 +96,16 @@ pub struct Trailer {
     pub file_count: u64,
     pub archive_root: Hash,
     pub data_len: u64,
+    /// Longueur de la section de parité qui suit la table de hachage (0 = aucune, v0).
+    pub parity_len: u64,
 }
 
 impl Trailer {
+    /// Début de la section de parité (juste après la table de hachage).
+    pub fn parity_off(&self) -> u64 {
+        self.hash_table_off + self.hash_table_len
+    }
+
     pub fn encode(&self) -> [u8; TRAILER_LEN] {
         let mut b = [0u8; TRAILER_LEN];
         b[0..8].copy_from_slice(&TRAILER_MAGIC);
@@ -106,6 +119,7 @@ impl Trailer {
         b[64..72].copy_from_slice(&self.file_count.to_le_bytes());
         b[72..104].copy_from_slice(&self.archive_root);
         b[104..112].copy_from_slice(&self.data_len.to_le_bytes());
+        b[112..120].copy_from_slice(&self.parity_len.to_le_bytes());
         let crc = crc32c::crc32c(&b[..TRAILER_LEN - 4]);
         b[TRAILER_LEN - 4..].copy_from_slice(&crc.to_le_bytes());
         b
@@ -133,6 +147,7 @@ impl Trailer {
             file_count: u64_at(b, 64),
             archive_root,
             data_len: u64_at(b, 104),
+            parity_len: u64_at(b, 112),
         })
     }
 }
@@ -182,11 +197,28 @@ mod tests {
             file_count: 8,
             archive_root: [9u8; 32],
             data_len: 10,
+            parity_len: 11,
         };
         let mut b = t.encode();
         assert_eq!(Trailer::decode(&b), Some(t));
         b[20] ^= 0xff;
         assert_eq!(Trailer::decode(&b), None);
+    }
+
+    #[test]
+    fn previous_version_is_accepted() {
+        let h = Header {
+            format_version: MIN_FORMAT_VERSION,
+            flags: 0,
+            codec_id: 1,
+            codec_level: 1,
+            codec_version: 0,
+            chunk_min: 0,
+            chunk_avg: 0,
+            chunk_max: 0,
+            dict_id: [0; 32],
+        };
+        assert_eq!(Header::decode(&h.encode()).unwrap(), h);
     }
 
     #[test]

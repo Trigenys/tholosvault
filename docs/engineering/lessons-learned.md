@@ -34,7 +34,10 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
   toucher plusieurs shards d'un même groupe si les stripes ne sont pas entrelacées (H5, E2).
 - **Classification** : conception du format.
 - **Prévention** : test d'injection de corruptions (aléatoire 1–5 %, contiguë 1–10 %, trailer) dans la suite de tests
-  de `vault-core` avant toute publication du format.
+  de `vault-core` avant toute publication du format. **En place depuis le format v1** (`tests/parity_v1.rs`) : la
+  parité couvre les octets tels qu'écrits (frames, index, tables, en-tête), stripes entrelacées, un shard de parité
+  supplémentaire par groupe pour absorber le désalignement d'une perte contiguë ; la réparation écrit une copie
+  temporaire puis renomme (I-001).
 - **Leçon** : la réparation doit être composable avec la distribution (réparer = télécharger les morceaux manquants d'une version voisine).
 
 ## Incidents du projet
