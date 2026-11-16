@@ -206,12 +206,12 @@ Légende : ● MVP · ◐ V1 · ○ Plus tard · — non prévu.
 | D3 | Hébergement landing | Pages statiques (Cloudflare Pages / GitHub Pages) vs VPS OVH existant derrière Caddy | Statique sur Cloudflare Pages (gratuit, CDN) ; repli VPS Caddy déjà en place | MVP |
 | D4 | Hébergement API / console | VPS OVH (Docker + Caddy, RAM limitée 3,7 Go) vs PaaS (Fly.io / Railway) vs AWS eu-west-3 | VPS OVH pour la V1 (coût nul, infra connue), limites mémoire déclarées ; migrer si trafic | V1 |
 | D5 | Stockage des morceaux hébergés | Aucun (métadonnées seules) vs S3 compatible (OVH Object Storage / R2) | Métadonnées seules en V1 ; S3 compatible quand le partage par lien exige l'hébergement | V1 → Plus tard |
-| D6 | Modèle économique | Open core (format + CLI libres, apps payantes) vs tout libre + services vs propriétaire | Open core : format et `vault-core` sous licence libre (crédibilité, adoption), apps et console payantes | avant la landing V1 |
-| D7 | Licence du cœur | MIT / Apache-2.0 vs MPL-2.0 vs AGPL | Apache-2.0 (brevets, adoption industrielle) | MVP |
+| D6 | Modèle économique | Open core vs tout libre + services vs propriétaire | **Tranché 2026-11-16 (ADR-0001)** : open core, format + `vault-core` + CLI libres, apps et console payantes | — |
+| D7 | Licence du cœur | MIT / Apache-2.0 vs MPL-2.0 vs AGPL | **Tranché 2026-11-16 (ADR-0001)** : Apache-2.0, fichier `LICENSE` à la racine | — |
 | D8 | Voie Windows par défaut | WinFsp (montage) vs ProjFS + WOF (hydratation) | WinFsp par défaut, ProjFS + WOF proposé dès qu'un exécutable de jeu est détecté ; trancher sur H7 | après matrice H7 |
 | D9 | Signature et distribution desktop | Certificat EV Windows + notarisation Apple vs non signé (MVP) | Non signé en MVP (utilisateurs techniques), signé en V1 | V1 |
 | D10 | Télémétrie | Aucune vs opt-in auto-hébergée (Umami / OpenTelemetry) | Opt-in, auto-hébergée, agrégée ; jamais de chemin de fichier | MVP |
-| D11 | Nom et domaine | « VAULT » est très générique (HashiCorp Vault, Obsidian « vault ») | Vérifier la disponibilité d'un nom composé (ex. `vaultfs`, `openvault`) et du domaine avant la landing | avant la landing |
+| D11 | Nom et domaine | « VAULT » est très générique (HashiCorp Vault, Obsidian « vault ») | Nom composé : shortlist vérifiée dans `docs/produit/nom.md` (reco chunkvault ou vaultfs) ; VAULT reste le nom de travail | avant la landing |
 
 ## 9. Hors périmètre déclaré
 

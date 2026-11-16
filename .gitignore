@@ -9,3 +9,8 @@ bench/corpus/
 bench/results/*.raw
 .env
 .env.*
+
+# Vidéo landing (apps/landing/video)
+apps/landing/video/renders/
+apps/landing/video/snaps*/
+apps/landing/video/node_modules/

@@ -1,0 +1,109 @@
+{
+  "ok": true,
+  "strict": false,
+  "browserSkipped": false,
+  "lint": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "filesScanned": 9
+  },
+  "runtime": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "layout": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "duration": 65,
+    "samples": [
+      3.611,
+      10.833,
+      18.056,
+      25.278,
+      32.5,
+      39.722,
+      46.944,
+      54.167,
+      61.389
+    ],
+    "transitionSamples": [],
+    "transitionSamplesDropped": 0,
+    "tolerance": 2,
+    "totalIssueCount": 0,
+    "truncated": false
+  },
+  "motion": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": false,
+    "samples": 0
+  },
+  "contrast": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": true,
+    "samples": [
+      3.611,
+      18.056,
+      32.5,
+      46.944,
+      61.389
+    ],
+    "checked": 43,
+    "passed": 43
+  },
+  "craft": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": true,
+    "step": 0.125,
+    "samples": 520
+  },
+  "audio": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "hdr": {
+    "autoPromotion": null,
+    "inspection": "available"
+  },
+  "snapshots": {
+    "enabled": false,
+    "files": [],
+    "times": [],
+    "findingFiles": []
+  },
+  "saved": {
+    "id": "94ad0144-a892-43ac-97e5-bfd53e1a0940",
+    "revision": "747eeace-a088-4b90-80c7-28ae9ac55eb2",
+    "report": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\.hyperframes\\artifacts\\checks\\94ad0144-a892-43ac-97e5-bfd53e1a0940.json",
+    "attribution": "recorded-revision"
+  },
+  "_meta": {
+    "version": "0.9.56",
+    "updateAvailable": false,
+    "skillsOutdated": 4,
+    "skillsMissing": 2
+  }
+}

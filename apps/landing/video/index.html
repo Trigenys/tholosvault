@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>VAULT, le principe</title>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+  <script src="assets/js/vault3d.js"></script>
+  <style>
+    html, body { margin: 0; background: #0B1220; }
+    #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #0B1220; font-family: Inter, sans-serif; }
+    #brand { position: absolute; left: 96px; top: 60px; z-index: 5; font-family: 'JetBrains Mono', monospace; font-size: 28px; letter-spacing: .18em; color: #EEF2F7; opacity: .92; text-shadow: 0 2px 12px rgba(0,0,0,.7); }
+    #brand i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #F5B400; margin-right: 14px; box-shadow: 0 0 18px #F5B400; }
+    #prog { position: absolute; left: 0; bottom: 0; height: 5px; width: 100%; background: #F5B400; transform-origin: 0 50%; z-index: 6; box-shadow: 0 0 16px rgba(245,180,0,.6); }
+  </style>
+</head>
+<body>
+  <div id="root" class="clip" data-composition-id="main" data-start="0" data-duration="65" data-width="1920" data-height="1080">
+    <audio id="bgm" class="clip" src="assets/bgm/track65.mp3" data-start="0" data-duration="65" data-volume="0.28"></audio>
+    <audio id="vo-intro" class="clip" src="assets/voice/intro.mp3" data-start="0.5" data-duration="6.04" data-volume="1"></audio>
+    <audio id="vo-mount" class="clip" src="assets/voice/mount.mp3" data-start="8.4" data-duration="5.62" data-volume="1"></audio>
+    <audio id="vo-cdc" class="clip" src="assets/voice/cdc.mp3" data-start="15.3" data-duration="9.1" data-volume="1"></audio>
+    <audio id="vo-zstd" class="clip" src="assets/voice/zstd.mp3" data-start="25.5" data-duration="6.73" data-volume="1"></audio>
+    <audio id="vo-merkle" class="clip" src="assets/voice/merkle.mp3" data-start="34.4" data-duration="7.11" data-volume="1"></audio>
+    <audio id="vo-parity" class="clip" src="assets/voice/parity.mp3" data-start="43.5" data-duration="5.48" data-volume="1"></audio>
+    <audio id="vo-delta" class="clip" src="assets/voice/delta.mp3" data-start="51.6" data-duration="3.11" data-volume="1"></audio>
+    <audio id="vo-outro" class="clip" src="assets/voice/outro.mp3" data-start="58.4" data-duration="6.36" data-volume="1"></audio>
+    <div id="intro" data-composition-id="intro" class="clip" data-composition-src="compositions/3d-intro.html" data-start="0" data-duration="8" data-track-index="0" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+    <div id="mount" data-composition-id="mount" class="clip" data-composition-src="compositions/3d-mount.html" data-start="8" data-duration="7" data-track-index="0" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+    <div id="cdc" data-composition-id="cdc" class="clip" data-composition-src="compositions/3d-cdc.html" data-start="15" data-duration="10" data-track-index="0" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+    <div id="zstd" data-composition-id="zstd" class="clip" data-composition-src="compositions/3d-zstd.html" data-start="25" data-duration="9" data-track-index="0" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+    <div id="merkle" data-composition-id="merkle" class="clip" data-composition-src="compositions/3d-merkle.html" data-start="34" data-duration="9" data-track-index="0" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+    <div id="parity" data-composition-id="parity" class="clip" data-composition-src="compositions/3d-parity.html" data-start="43" data-duration="8" data-track-index="0" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+    <div id="delta" data-composition-id="delta" class="clip" data-composition-src="compositions/3d-delta.html" data-start="51" data-duration="7" data-track-index="0" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+    <div id="outro" data-composition-id="outro" class="clip" data-composition-src="compositions/3d-outro.html" data-start="58" data-duration="7" data-track-index="0" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+    <div id="brand"><i></i>VAULT</div>
+    <div id="prog"></div>
+  </div>
+  <script>
+    window.__timelines = window.__timelines || {};
+    const main = gsap.timeline({ paused: true });
+    main.fromTo('#prog', { scaleX: 0 }, { scaleX: 1, duration: 65, ease: 'none' }, 0);
+    window.__timelines["main"] = main;
+  </script>
+</body>
+</html>

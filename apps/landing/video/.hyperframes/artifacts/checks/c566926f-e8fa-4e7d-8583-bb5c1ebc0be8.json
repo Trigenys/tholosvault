@@ -1,0 +1,928 @@
+{
+  "ok": false,
+  "strict": false,
+  "browserSkipped": false,
+  "lint": {
+    "ok": false,
+    "errorCount": 24,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "missing_or_empty_sub_composition",
+        "severity": "error",
+        "message": "data-composition-src references \"compositions/intro.html\", but the file's resolved content has no element with a data-composition-id attribute.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Fix this before rendering: the render pre-flight rejects unusable sub-compositions. Write valid HTML into \"compositions/intro.html\". It needs a <template> or <body> containing an element with data-composition-id, data-width, and data-height. Preview/studio still tolerates and skips the scene while you author it. If a scene-authoring step is still running, wait for it to finish before referencing the file, or re-run the step that generates it."
+      },
+      {
+        "code": "missing_or_empty_sub_composition",
+        "severity": "error",
+        "message": "data-composition-src references \"compositions/mount.html\", but the file's resolved content has no element with a data-composition-id attribute.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Fix this before rendering: the render pre-flight rejects unusable sub-compositions. Write valid HTML into \"compositions/mount.html\". It needs a <template> or <body> containing an element with data-composition-id, data-width, and data-height. Preview/studio still tolerates and skips the scene while you author it. If a scene-authoring step is still running, wait for it to finish before referencing the file, or re-run the step that generates it."
+      },
+      {
+        "code": "missing_or_empty_sub_composition",
+        "severity": "error",
+        "message": "data-composition-src references \"compositions/cdc.html\", but the file's resolved content has no element with a data-composition-id attribute.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Fix this before rendering: the render pre-flight rejects unusable sub-compositions. Write valid HTML into \"compositions/cdc.html\". It needs a <template> or <body> containing an element with data-composition-id, data-width, and data-height. Preview/studio still tolerates and skips the scene while you author it. If a scene-authoring step is still running, wait for it to finish before referencing the file, or re-run the step that generates it."
+      },
+      {
+        "code": "missing_or_empty_sub_composition",
+        "severity": "error",
+        "message": "data-composition-src references \"compositions/zstd.html\", but the file's resolved content has no element with a data-composition-id attribute.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Fix this before rendering: the render pre-flight rejects unusable sub-compositions. Write valid HTML into \"compositions/zstd.html\". It needs a <template> or <body> containing an element with data-composition-id, data-width, and data-height. Preview/studio still tolerates and skips the scene while you author it. If a scene-authoring step is still running, wait for it to finish before referencing the file, or re-run the step that generates it."
+      },
+      {
+        "code": "missing_or_empty_sub_composition",
+        "severity": "error",
+        "message": "data-composition-src references \"compositions/merkle.html\", but the file's resolved content has no element with a data-composition-id attribute.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Fix this before rendering: the render pre-flight rejects unusable sub-compositions. Write valid HTML into \"compositions/merkle.html\". It needs a <template> or <body> containing an element with data-composition-id, data-width, and data-height. Preview/studio still tolerates and skips the scene while you author it. If a scene-authoring step is still running, wait for it to finish before referencing the file, or re-run the step that generates it."
+      },
+      {
+        "code": "missing_or_empty_sub_composition",
+        "severity": "error",
+        "message": "data-composition-src references \"compositions/parity.html\", but the file's resolved content has no element with a data-composition-id attribute.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Fix this before rendering: the render pre-flight rejects unusable sub-compositions. Write valid HTML into \"compositions/parity.html\". It needs a <template> or <body> containing an element with data-composition-id, data-width, and data-height. Preview/studio still tolerates and skips the scene while you author it. If a scene-authoring step is still running, wait for it to finish before referencing the file, or re-run the step that generates it."
+      },
+      {
+        "code": "missing_or_empty_sub_composition",
+        "severity": "error",
+        "message": "data-composition-src references \"compositions/delta.html\", but the file's resolved content has no element with a data-composition-id attribute.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Fix this before rendering: the render pre-flight rejects unusable sub-compositions. Write valid HTML into \"compositions/delta.html\". It needs a <template> or <body> containing an element with data-composition-id, data-width, and data-height. Preview/studio still tolerates and skips the scene while you author it. If a scene-authoring step is still running, wait for it to finish before referencing the file, or re-run the step that generates it."
+      },
+      {
+        "code": "missing_or_empty_sub_composition",
+        "severity": "error",
+        "message": "data-composition-src references \"compositions/outro.html\", but the file's resolved content has no element with a data-composition-id attribute.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Fix this before rendering: the render pre-flight rejects unusable sub-compositions. Write valid HTML into \"compositions/outro.html\". It needs a <template> or <body> containing an element with data-composition-id, data-width, and data-height. Preview/studio still tolerates and skips the scene while you author it. If a scene-authoring step is still running, wait for it to finish before referencing the file, or re-run the step that generates it."
+      },
+      {
+        "code": "root_missing_composition_id",
+        "severity": "error",
+        "message": "Root composition is missing `data-composition-id`.",
+        "selector": "#root",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\cdc.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable `data-composition-id` to the entry composition wrapper."
+      },
+      {
+        "code": "timeline_id_mismatch",
+        "severity": "error",
+        "message": "Timeline registered as \"cdc\" but no element has data-composition-id=\"cdc\". The runtime cannot auto-nest this timeline.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\cdc.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Change window.__timelines[\"cdc\"] to match the data-composition-id attribute, or vice versa."
+      },
+      {
+        "code": "root_missing_composition_id",
+        "severity": "error",
+        "message": "Root composition is missing `data-composition-id`.",
+        "selector": "#root",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\delta.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable `data-composition-id` to the entry composition wrapper."
+      },
+      {
+        "code": "timeline_id_mismatch",
+        "severity": "error",
+        "message": "Timeline registered as \"delta\" but no element has data-composition-id=\"delta\". The runtime cannot auto-nest this timeline.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\delta.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Change window.__timelines[\"delta\"] to match the data-composition-id attribute, or vice versa."
+      },
+      {
+        "code": "root_missing_composition_id",
+        "severity": "error",
+        "message": "Root composition is missing `data-composition-id`.",
+        "selector": "#root",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\intro.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable `data-composition-id` to the entry composition wrapper."
+      },
+      {
+        "code": "timeline_id_mismatch",
+        "severity": "error",
+        "message": "Timeline registered as \"intro\" but no element has data-composition-id=\"intro\". The runtime cannot auto-nest this timeline.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\intro.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Change window.__timelines[\"intro\"] to match the data-composition-id attribute, or vice versa."
+      },
+      {
+        "code": "root_missing_composition_id",
+        "severity": "error",
+        "message": "Root composition is missing `data-composition-id`.",
+        "selector": "#root",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\merkle.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable `data-composition-id` to the entry composition wrapper."
+      },
+      {
+        "code": "timeline_id_mismatch",
+        "severity": "error",
+        "message": "Timeline registered as \"merkle\" but no element has data-composition-id=\"merkle\". The runtime cannot auto-nest this timeline.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\merkle.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Change window.__timelines[\"merkle\"] to match the data-composition-id attribute, or vice versa."
+      },
+      {
+        "code": "root_missing_composition_id",
+        "severity": "error",
+        "message": "Root composition is missing `data-composition-id`.",
+        "selector": "#root",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\mount.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable `data-composition-id` to the entry composition wrapper."
+      },
+      {
+        "code": "timeline_id_mismatch",
+        "severity": "error",
+        "message": "Timeline registered as \"mount\" but no element has data-composition-id=\"mount\". The runtime cannot auto-nest this timeline.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\mount.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Change window.__timelines[\"mount\"] to match the data-composition-id attribute, or vice versa."
+      },
+      {
+        "code": "root_missing_composition_id",
+        "severity": "error",
+        "message": "Root composition is missing `data-composition-id`.",
+        "selector": "#root",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\outro.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable `data-composition-id` to the entry composition wrapper."
+      },
+      {
+        "code": "timeline_id_mismatch",
+        "severity": "error",
+        "message": "Timeline registered as \"outro\" but no element has data-composition-id=\"outro\". The runtime cannot auto-nest this timeline.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\outro.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Change window.__timelines[\"outro\"] to match the data-composition-id attribute, or vice versa."
+      },
+      {
+        "code": "root_missing_composition_id",
+        "severity": "error",
+        "message": "Root composition is missing `data-composition-id`.",
+        "selector": "#root",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\parity.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable `data-composition-id` to the entry composition wrapper."
+      },
+      {
+        "code": "timeline_id_mismatch",
+        "severity": "error",
+        "message": "Timeline registered as \"parity\" but no element has data-composition-id=\"parity\". The runtime cannot auto-nest this timeline.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\parity.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Change window.__timelines[\"parity\"] to match the data-composition-id attribute, or vice versa."
+      },
+      {
+        "code": "root_missing_composition_id",
+        "severity": "error",
+        "message": "Root composition is missing `data-composition-id`.",
+        "selector": "#root",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\zstd.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable `data-composition-id` to the entry composition wrapper."
+      },
+      {
+        "code": "timeline_id_mismatch",
+        "severity": "error",
+        "message": "Timeline registered as \"zstd\" but no element has data-composition-id=\"zstd\". The runtime cannot auto-nest this timeline.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "C:\\Users\\lawry\\AppData\\Local\\Claude-Data\\claude_pzs8sxrjxfjjc\\scratch-workspaces\\fc491b7b-1d02-415f-8c2a-443df584871f\\2be7c053-3e17-40ed-baec-8dc22b9ae536\\scratch-2026-11-15-602af8\\video-vault\\compositions\\zstd.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Change window.__timelines[\"zstd\"] to match the data-composition-id attribute, or vice versa."
+      }
+    ],
+    "filesScanned": 9
+  },
+  "runtime": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "layout": {
+    "ok": false,
+    "errorCount": 1,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "content_overlap",
+        "severity": "error",
+        "time": 21.425,
+        "selector": "#cdc-lab2",
+        "message": "Two text blocks overlap and may render unreadable.",
+        "rect": {
+          "left": 260,
+          "top": 424,
+          "right": 853.08,
+          "bottom": 455,
+          "width": 593.08,
+          "height": 31
+        },
+        "containerSelector": "#cdc-e1",
+        "text": "Les mêmes données, 10 octets ajoutés au début",
+        "fixHint": "Give each block its own zone, or put data-layout-allow-overlap on the text or on a container inside the scene. A marker on the scene root does not apply. Decoration nobody needs to read can take data-layout-ignore.",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 260,
+          "y": 424,
+          "width": 593.08,
+          "height": 31
+        },
+        "firstSeen": 21.425,
+        "lastSeen": 24.693,
+        "occurrences": 10,
+        "heldMs": 3268.000000000001,
+        "times": [
+          21.425,
+          21.788,
+          22.151,
+          22.514,
+          22.877,
+          23.24,
+          23.603,
+          23.966,
+          24.33,
+          24.693
+        ]
+      }
+    ],
+    "duration": 65,
+    "samples": [
+      3.611,
+      10.833,
+      18.056,
+      25.278,
+      32.5,
+      39.722,
+      46.944,
+      54.167,
+      61.389
+    ],
+    "transitionSamples": [],
+    "transitionSamplesDropped": 0,
+    "tolerance": 2,
+    "totalIssueCount": 1,
+    "truncated": false
+  },
+  "motion": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": false,
+    "samples": 0
+  },
+  "contrast": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": true,
+    "samples": [
+      3.611,
+      18.056,
+      32.5,
+      46.944,
+      61.389
+    ],
+    "checked": 73,
+    "passed": 73
+  },
+  "craft": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 5,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "first_frame_empty",
+        "severity": "warning",
+        "message": "Frame 0 shows only the background, and the first frame is the thumbnail on social players: have the title or key image already on screen at 0 s instead of entering from nothing; see references/review.md.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0
+      },
+      {
+        "code": "film_silent",
+        "severity": "warning",
+        "message": "This 65 s film has no sound source (no <audio>, no <video> with sound): add a music bed and sounds on the visible actions unless the person asked for silence; see references/sound.md.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0
+      },
+      {
+        "code": "line_unread",
+        "severity": "warning",
+        "message": "\"Disque C: 15:00 Disque plein\" (6 words) is on screen 1.37 s (±0.01 s), under its 1.72 s floor: hold it about 0.5 s + 0.3 s a word (2.30 s here) before it leaves or changes; see references/motion.md.",
+        "text": "Disque C: 15:00 Disque plein",
+        "selector": "#intro-disk",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 1138.7,
+          "y": 548.14,
+          "width": 155.37000000000012,
+          "height": 30.720000000000027
+        },
+        "time": 6.469,
+        "words": 6,
+        "seconds": 1.367,
+        "floorSeconds": 1.725,
+        "measured": [
+          {
+            "time": 6.125,
+            "opacity": null,
+            "heightPx": null
+          },
+          {
+            "time": 6.25,
+            "opacity": null,
+            "heightPx": null
+          },
+          {
+            "time": 6.375,
+            "opacity": null,
+            "heightPx": null
+          },
+          {
+            "time": 6.5,
+            "opacity": 0.91,
+            "heightPx": 31
+          },
+          {
+            "time": 6.625,
+            "opacity": 1,
+            "heightPx": 31
+          },
+          {
+            "time": 6.75,
+            "opacity": 1,
+            "heightPx": 31
+          },
+          {
+            "time": 6.875,
+            "opacity": 1,
+            "heightPx": 31
+          },
+          {
+            "time": 7.375,
+            "opacity": 1,
+            "heightPx": 31
+          },
+          {
+            "time": 7.5,
+            "opacity": 1,
+            "heightPx": 31
+          },
+          {
+            "time": 7.625,
+            "opacity": 1,
+            "heightPx": 31
+          },
+          {
+            "time": 7.75,
+            "opacity": 0.92,
+            "heightPx": 31
+          },
+          {
+            "time": 7.875,
+            "opacity": null,
+            "heightPx": null
+          },
+          {
+            "time": 8,
+            "opacity": null,
+            "heightPx": null
+          },
+          {
+            "time": 8.125,
+            "opacity": null,
+            "heightPx": null
+          }
+        ]
+      },
+      {
+        "code": "dead_stretch",
+        "severity": "warning",
+        "message": "Nothing on screen changes for 3.25 s (11.13–14.38 s): start the next move within 3 s, or put data-hold on the element whose stillness is deliberate; see references/motion.md.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 11.125,
+        "seconds": 3.25,
+        "floorSeconds": 3,
+        "until": 14.375
+      },
+      {
+        "code": "text_below_floor",
+        "severity": "warning",
+        "message": "Type floor is 28 px (2.6% of the 1080 px short side, what a phone can read) and 28 text elements stay under it for 0.5 s or more, the smallest \"8b35…\" at 19 px: set reading text to at least 28 px, or put data-layout-ignore on text that is texture rather than reading; see references/look.md.",
+        "text": "8b35…",
+        "selector": "#merkle-n20",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 590.12,
+          "y": 361.32,
+          "width": 55.75,
+          "height": 21.36
+        },
+        "time": 36.875,
+        "times": [
+          6.5,
+          15.375,
+          19.875,
+          21,
+          25.5,
+          29.375,
+          29.375,
+          30,
+          30,
+          35.375,
+          35.375,
+          35.375,
+          35.5,
+          35.5,
+          35.625,
+          35.625,
+          35.75,
+          36.25,
+          36.25,
+          36.375,
+          36.375,
+          36.875,
+          37,
+          37.375,
+          37.5,
+          44.125,
+          45.125,
+          47.25
+        ],
+        "fontPx": 18.58,
+        "floorPx": 28,
+        "seconds": 6,
+        "elements": [
+          {
+            "selector": "#merkle-n20",
+            "text": "8b35…",
+            "fontPx": 18.58,
+            "time": 36.875,
+            "seconds": 6
+          },
+          {
+            "selector": "#merkle-n11",
+            "text": "9c70…",
+            "fontPx": 18.76,
+            "time": 36.25,
+            "seconds": 6.625
+          },
+          {
+            "selector": "#merkle-n13",
+            "text": "62f8…",
+            "fontPx": 19.08,
+            "time": 36.375,
+            "seconds": 6.5
+          },
+          {
+            "selector": "#merkle-n21",
+            "text": "f07c…",
+            "fontPx": 19.69,
+            "time": 37,
+            "seconds": 5.875
+          },
+          {
+            "selector": "#merkle-n10",
+            "text": "4e2b…",
+            "fontPx": 19.87,
+            "time": 36.25,
+            "seconds": 6.625
+          },
+          {
+            "selector": "#merkle-c0 > span:nth-of-type(1)",
+            "text": "a91f…",
+            "fontPx": 20,
+            "time": 35.375,
+            "seconds": 7.5
+          },
+          {
+            "selector": "#merkle-c1 > span:nth-of-type(1)",
+            "text": "03d7…",
+            "fontPx": 20,
+            "time": 35.375,
+            "seconds": 7.5
+          },
+          {
+            "selector": "#merkle-c2 > span:nth-of-type(1)",
+            "text": "e4c2…",
+            "fontPx": 20,
+            "time": 35.375,
+            "seconds": 7.5
+          },
+          {
+            "selector": "#merkle-c3 > span:nth-of-type(1)",
+            "text": "77b0…",
+            "fontPx": 20,
+            "time": 35.5,
+            "seconds": 7.375
+          },
+          {
+            "selector": "#merkle-c4 > span:nth-of-type(1)",
+            "text": "c58a…",
+            "fontPx": 20,
+            "time": 35.5,
+            "seconds": 3.375
+          },
+          {
+            "selector": "#merkle-c5 > span:nth-of-type(1)",
+            "text": "1f9e…",
+            "fontPx": 20,
+            "time": 35.625,
+            "seconds": 7.25
+          },
+          {
+            "selector": "#merkle-c6 > span:nth-of-type(1)",
+            "text": "b6d3…",
+            "fontPx": 20,
+            "time": 35.625,
+            "seconds": 7.25
+          },
+          {
+            "selector": "#merkle-c7 > span:nth-of-type(1)",
+            "text": "5a08…",
+            "fontPx": 20,
+            "time": 35.75,
+            "seconds": 7.125
+          },
+          {
+            "selector": "#merkle-n12",
+            "text": "d1a4…",
+            "fontPx": 20,
+            "time": 36.375,
+            "seconds": 6.5
+          },
+          {
+            "selector": "#merkle-root",
+            "text": "racine 7c3e…",
+            "fontPx": 21.01,
+            "time": 37.5,
+            "seconds": 5.375
+          },
+          {
+            "selector": "#cdc-chg",
+            "text": "modifié",
+            "fontPx": 24,
+            "time": 21,
+            "seconds": 3.875
+          },
+          {
+            "selector": "#zstd-r1 > div:nth-of-type(2)",
+            "text": "décompresser tout ce qui précède",
+            "fontPx": 24,
+            "time": 29.375,
+            "seconds": 4.5
+          },
+          {
+            "selector": "#zstd-r2 > div:nth-of-type(2)",
+            "text": "décompresser un morceau de 64 Kio",
+            "fontPx": 24,
+            "time": 30,
+            "seconds": 3.875
+          },
+          {
+            "selector": "#parity-tag",
+            "text": "parité Reed-Solomon, 3 à 5 %",
+            "fontPx": 24,
+            "time": 44.125,
+            "seconds": 6.75
+          },
+          {
+            "selector": "#parity-lost",
+            "text": "perdu",
+            "fontPx": 24,
+            "time": 45.125,
+            "seconds": 1.75
+          },
+          {
+            "selector": "#parity-ok",
+            "text": "reconstruit",
+            "fontPx": 24,
+            "time": 47.25,
+            "seconds": 3.625
+          },
+          {
+            "selector": "#intro-full",
+            "text": "Disque plein",
+            "fontPx": 25.77,
+            "time": 6.5,
+            "seconds": 1.375
+          },
+          {
+            "selector": "#cdc-lab1",
+            "text": "Données",
+            "fontPx": 26,
+            "time": 15.375,
+            "seconds": 9.5
+          },
+          {
+            "selector": "#cdc-lab2",
+            "text": "Les mêmes données, 10 octets ajoutés au début",
+            "fontPx": 26,
+            "time": 19.875,
+            "seconds": 5
+          },
+          {
+            "selector": "#zstd-tag",
+            "text": "Compression zstd, morceau par morceau",
+            "fontPx": 26,
+            "time": 25.5,
+            "seconds": 8.375
+          },
+          {
+            "selector": "#zstd-r1 > div:nth-of-type(1)",
+            "text": "Archive solide (7z)",
+            "fontPx": 26,
+            "time": 29.375,
+            "seconds": 4.5
+          },
+          {
+            "selector": "#zstd-r2 > div:nth-of-type(1)",
+            "text": "VAULT",
+            "fontPx": 26,
+            "time": 30,
+            "seconds": 3.875
+          },
+          {
+            "selector": "#merkle-tag",
+            "text": "Empreintes BLAKE3, arbre de Merkle",
+            "fontPx": 26,
+            "time": 37.375,
+            "seconds": 5.5
+          }
+        ]
+      }
+    ],
+    "enabled": true,
+    "step": 0.125,
+    "samples": 520
+  },
+  "audio": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 1,
+    "findings": [
+      {
+        "code": "audio_none",
+        "severity": "info",
+        "message": "The film has no sound: no clip in it plays audio.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0
+      }
+    ]
+  },
+  "hdr": {
+    "autoPromotion": null,
+    "inspection": "available"
+  },
+  "snapshots": {
+    "enabled": false,
+    "files": [],
+    "times": [],
+    "findingFiles": []
+  }
+}

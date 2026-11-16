@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="fr"
+  data-composition-variables='[{"id":"accent","type":"color","label":"Accent","default":"#F5B400"},{"id":"ground","type":"color","label":"Fond","default":"#0B1220"}]'>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--ground, #0B1220); }
+      #root { position: relative; width: 100%; height: 100%; font-family: Inter, sans-serif; }
+      /* scene-scale */ [data-composition-src] { transform: scale(1.12); transform-origin: 50% 72%; }
+      #bg { position: absolute; inset: 0; background: radial-gradient(1100px 700px at 78% 18%, rgba(245,180,0,.14), transparent 60%), radial-gradient(1200px 800px at 15% 90%, rgba(76,123,217,.22), transparent 60%), var(--ground, #0B1220); }
+      #bg-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px); background-size: 96px 96px; mask-image: radial-gradient(ellipse at 50% 50%, #000 40%, transparent 95%); -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 40%, transparent 95%); }
+      #bg-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,.55) 100%); }
+      #brand { position: absolute; left: 96px; top: 60px; font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 700; letter-spacing: .18em; color: #EEF2F7; z-index: 5; display: flex; align-items: center; gap: 14px; }
+      #brand::before { content: ''; width: 14px; height: 14px; border-radius: 50%; background: var(--accent, #F5B400); box-shadow: 0 0 18px rgba(245,180,0,.8); }
+      #prog { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: var(--accent, #F5B400); transform-origin: 0 50%; z-index: 5; box-shadow: 0 0 16px rgba(245,180,0,.6); }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="65" data-width="1920" data-height="1080">
+      <div id="bg"></div>
+      <div id="bg-grid"></div>
+      <div id="bg-vignette"></div>
+      <div id="brand">VAULT</div>
+      <div id="prog"></div>
+      <audio id="bgm" class="clip" src="assets/bgm/track65.mp3" data-start="0" data-duration="65" data-volume="0.3"></audio>
+      <audio id="vo-intro" class="clip" src="assets/voice/intro.mp3" data-start="0.5" data-duration="6.1" data-volume="1"></audio>
+      <audio id="vo-mount" class="clip" src="assets/voice/mount.mp3" data-start="8.4" data-duration="5.7" data-volume="1"></audio>
+      <audio id="vo-cdc" class="clip" src="assets/voice/cdc.mp3" data-start="15.3" data-duration="9.2" data-volume="1"></audio>
+      <audio id="vo-zstd" class="clip" src="assets/voice/zstd.mp3" data-start="25.5" data-duration="6.8" data-volume="1"></audio>
+      <audio id="vo-merkle" class="clip" src="assets/voice/merkle.mp3" data-start="34.4" data-duration="7.2" data-volume="1"></audio>
+      <audio id="vo-parity" class="clip" src="assets/voice/parity.mp3" data-start="43.5" data-duration="5.6" data-volume="1"></audio>
+      <audio id="vo-delta" class="clip" src="assets/voice/delta.mp3" data-start="51.6" data-duration="3.2" data-volume="1"></audio>
+      <audio id="vo-outro" class="clip" src="assets/voice/outro.mp3" data-start="58.4" data-duration="6.45" data-volume="1"></audio>
+      <div id="intro"  data-composition-id="intro"  class="clip" data-composition-src="compositions/intro.html"  data-start="0"  data-duration="8" data-track-index="1" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+      <div id="mount"  data-composition-id="mount"  class="clip" data-composition-src="compositions/mount.html"  data-start="8"  data-duration="7" data-track-index="1" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+      <div id="cdc"    data-composition-id="cdc"    class="clip" data-composition-src="compositions/cdc.html"    data-start="15" data-duration="10" data-track-index="1" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+      <div id="zstd"   data-composition-id="zstd"   class="clip" data-composition-src="compositions/zstd.html"   data-start="25" data-duration="9" data-track-index="1" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+      <div id="merkle" data-composition-id="merkle" class="clip" data-composition-src="compositions/merkle.html" data-start="34" data-duration="9" data-track-index="1" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+      <div id="parity" data-composition-id="parity" class="clip" data-composition-src="compositions/parity.html" data-start="43" data-duration="8" data-track-index="1" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+      <div id="delta"  data-composition-id="delta"  class="clip" data-composition-src="compositions/delta.html"  data-start="51" data-duration="7" data-track-index="1" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+      <div id="outro"  data-composition-id="outro"  class="clip" data-composition-src="compositions/outro.html"  data-start="58" data-duration="7" data-track-index="1" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const main = gsap.timeline({ paused: true });
+      main.fromTo('#prog', { scaleX: 0 }, { scaleX: 1, duration: 65, ease: 'none' }, 0);
+      window.__timelines["main"] = main;
+    </script>
+  </body>
+</html>

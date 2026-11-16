@@ -1,0 +1,43 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: Inter, sans-serif; color: #EEF2F7; background: #0B1220; }
+    #delta-cam { position: absolute; inset: 0; will-change: transform; }
+    #delta-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; will-change: transform; }
+    #delta-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11,18,32,.30) 0%, rgba(11,18,32,0) 30%, rgba(11,18,32,0) 55%, rgba(11,18,32,.90) 100%); }
+    #delta-glow { position: absolute; left: -20%; top: -10%; width: 60%; height: 120%; background: linear-gradient(100deg, rgba(255,255,255,0) 40%, rgba(255,230,160,.10) 50%, rgba(255,255,255,0) 60%); opacity: 0; pointer-events: none; }
+    #delta-flash { position: absolute; inset: 0; background: #0B1220; opacity: 0; }
+    .line { position: absolute; left: 10%; right: 10%; bottom: 11%; font-size: 56px; font-weight: 700; letter-spacing: -0.02em; text-align: center; line-height: 1.2; text-shadow: 0 3px 28px rgba(0,0,0,.8), 0 1px 2px rgba(0,0,0,.7); }
+    .w { display: inline-block; opacity: 0; }
+    .acc { color: #F5B400; }
+  </style>
+  <div id="root" data-composition-id="delta" data-layout-allow-overflow data-layout-allow-overlap>
+    <img id="delta-art" src="assets/art/delta.png" alt="">
+    <div id="delta-shade"></div>
+    <div id="delta-glow"></div>
+    <p class="line" id="delta-line1">Nouvelle version : seuls les morceaux <b>changés</b> voyagent.</p>
+    
+    <div id="delta-flash"></div>
+  </div>
+  <script>
+    function vwords(sel) {
+      const el = document.querySelector(sel); const out = [];
+      [...el.childNodes].forEach(n => {
+        if (n.nodeType === 3) { const raw = n.textContent; raw.trim().split(' ').filter(Boolean).forEach((w, i) => { if (i === 0 && out.length && raw.charAt(0) !== ' ') { out[out.length - 1].textContent += w; return; } const s = document.createElement('span'); s.className = 'w'; s.textContent = w; out.push(s); }); }
+        else { const s = document.createElement('span'); s.className = 'w acc'; s.textContent = n.textContent; out.push(s); }
+      });
+      el.innerHTML = ''; out.forEach(s => { el.appendChild(s); el.appendChild(document.createTextNode(' ')); });
+      return out;
+    }
+    function lineIn(tl, sel, at) { const w = vwords(sel); tl.fromTo(w, { opacity: 0, y: 18, filter: 'blur(6px)' }, { opacity: 1, y: 0, filter: 'blur(0px)', duration: 0.3, stagger: 0.06, ease: 'power4.out' }, at); return w; }
+    function lineOut(tl, w, at) { tl.to(w, { opacity: 0, y: -10, filter: 'blur(6px)', duration: 0.2, stagger: 0.02, ease: 'power3.in' }, at); }
+
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo('#delta-art', { transform: 'scale(1.00) translate(0%,0%)' }, { transform: 'scale(1.12) translate(0%,1%)', duration: 7, ease: 'none' }, 0);
+    tl.fromTo('#delta-flash', { opacity: 1 }, { opacity: 0, duration: 0.6, ease: 'power2.out' }, 0);
+    tl.fromTo('#delta-glow', { opacity: 0, x: 0 }, { opacity: 1, x: 2400, duration: 7, ease: 'none' }, 0);
+    const w1 = lineIn(tl, '#delta-line1', 0.5);
+    lineOut(tl, w1, 6.40);
+    tl.to('#delta-flash', { opacity: 1, duration: 0.35, ease: 'power2.in' }, 6.65);
+    window.__timelines['delta'] = tl;
+  </script>
+</template>

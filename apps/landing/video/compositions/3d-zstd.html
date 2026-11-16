@@ -1,0 +1,81 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: Inter, sans-serif; color: #EEF2F7; background: #0B1220; }
+    #zstd-gl { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+    #zstd-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11,18,32,.25) 0%, rgba(11,18,32,0) 28%, rgba(11,18,32,0) 58%, rgba(11,18,32,.88) 100%); }
+    #zstd-vig { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(0,0,0,.45) 100%); }
+    #zstd-flash { position: absolute; inset: 0; background: #0B1220; opacity: 0; }
+    .line { position: absolute; left: 10%; right: 10%; bottom: 11%; font-size: 56px; font-weight: 700; letter-spacing: -0.02em; text-align: center; line-height: 1.2; text-shadow: 0 3px 28px rgba(0,0,0,.8), 0 1px 2px rgba(0,0,0,.7); }
+    .w { display: inline-block; opacity: 0; }
+    .acc { color: #F5B400; }
+  </style>
+  <div id="root" data-composition-id="zstd" data-layout-allow-overflow data-layout-allow-overlap>
+    <canvas id="zstd-gl" width="1920" height="1080"></canvas>
+    <div id="zstd-vig"></div>
+    <div id="zstd-shade"></div>
+    <p class="line" id="zstd-line1">Chaque morceau est compressé <b>seul</b>.</p>
+    <p class="line" id="zstd-line2">Lire un morceau : <b>0,1 ms</b> au lieu de 122.</p>
+    <div id="zstd-flash"></div>
+  </div>
+  <script>
+    function vwords(sel) {
+      const el = document.querySelector(sel); const out = [];
+      [...el.childNodes].forEach(n => {
+        if (n.nodeType === 3) { const raw = n.textContent; raw.trim().split(' ').filter(Boolean).forEach((w, i) => { if (i === 0 && out.length && raw.charAt(0) !== ' ') { out[out.length - 1].textContent += w; return; } const s = document.createElement('span'); s.className = 'w'; s.textContent = w; out.push(s); }); }
+        else { const s = document.createElement('span'); s.className = 'w acc'; s.textContent = n.textContent; out.push(s); }
+      });
+      el.innerHTML = ''; out.forEach(s => { el.appendChild(s); el.appendChild(document.createTextNode(' ')); });
+      return out;
+    }
+    function lineIn(tl, sel, at) { const w = vwords(sel); tl.fromTo(w, { opacity: 0, y: 18, filter: 'blur(6px)' }, { opacity: 1, y: 0, filter: 'blur(0px)', duration: 0.3, stagger: 0.06, ease: 'power4.out' }, at); return w; }
+    function lineOut(tl, w, at) { tl.to(w, { opacity: 0, y: -10, filter: 'blur(6px)', duration: 0.2, stagger: 0.02, ease: 'power3.in' }, at); }
+
+    (function () {
+      const T = 9, V = window.V3D, PAL = V.PAL;
+      const tl = gsap.timeline({ paused: true });
+      const stg = V.stage(document.getElementById('zstd-gl'), { seed: 314 });
+      const { scene, st, rng } = stg;
+      const C = PAL.chunks.map(c => new THREE.Color(c));
+      const col = (mat, hex, at, d) => { const c = new THREE.Color(hex); tl.to(mat.color, { r: c.r, g: c.g, b: c.b, duration: d || 0.3 }, at); };
+      const glow = (mat, hex, i, at, d) => { const c = new THREE.Color(hex); tl.to(mat.emissive, { r: c.r, g: c.g, b: c.b, duration: d || 0.3 }, at); tl.to(mat, { emissiveIntensity: i, duration: d || 0.3 }, at); };
+      // --- scene: zstd ---
+      // Each chunk compresses alone; one is plucked out and unfolds by itself.
+      const chunks = [];
+      for (let i = 0; i < 8; i++) {
+        const c = V.box(1.6, 1.25, 1.25, PAL.chunks[i]); c.position.set(-6.65 + i * 1.9, -0.55, 0); scene.add(c); chunks.push(c);
+      }
+      const pad = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.06, 40), V.toon(PAL.amber, { emissive: PAL.amber, emissiveIntensity: 0.15 }));
+      pad.position.set(chunks[3].position.x, -1.17, 0); pad.scale.setScalar(0.01); scene.add(pad);
+      // compression: squash with a glow pulse
+      chunks.forEach((c, i) => {
+        const at = 1.5 + i * 0.09;
+        tl.to(c.scale, { x: 0.46, y: 0.92, z: 0.92, duration: 0.5, ease: 'power3.inOut' }, at);
+        tl.to(c.position, { y: -0.75, duration: 0.5, ease: 'power3.inOut' }, at);
+        glow(c.fill.material, PAL.chunks[i], 0.7, at + 0.3, 0.15); glow(c.fill.material, PAL.chunks[i], 0.0, at + 0.6, 0.4);
+      });
+      // one chunk lifts and unfolds alone
+      const k = chunks[3];
+      tl.to(pad.scale, { x: 1, y: 1, z: 1, duration: 0.4, ease: 'back.out(2)' }, 3.9);
+      tl.to(k.position, { y: 1.1, duration: 0.6, ease: 'back.out(1.4)' }, 4.0);
+      tl.to(k.rotation, { y: 0.35, duration: 0.6, ease: 'power2.out' }, 4.0);
+      tl.to(k.scale, { x: 1, y: 1, z: 1, duration: 0.35, ease: 'back.out(2.2)' }, 4.5);
+      glow(k.fill.material, PAL.amber, 0.18, 4.5, 0.3); col(k.fill.material, PAL.amber, 4.5, 0.3);
+      tl.to(k.position, { y: 1.3, duration: 1.2, yoyo: true, repeat: 3, ease: 'sine.inOut' }, 4.6);
+      chunks.forEach((c, i) => { if (i !== 3) col(c.fill.material, new THREE.Color(PAL.chunks[i]).multiplyScalar(0.55).getHex(), 4.5, 0.6); });
+      // camera: macro drift then settle on the open chunk
+      st.cx = -4.5; st.cy = 2.0; st.cz = 9.5; st.tx = -1.0; st.ty = -0.3; st.tz = 0;
+      tl.to(st, { cx: -0.8, cy: 2.6, cz: 7.8, tx: k.position.x + 0.4, ty: 0.3, duration: T, ease: 'none' }, 0);
+
+      // --- captions + cut ---
+      tl.fromTo('#zstd-flash', { opacity: 1 }, { opacity: 0, duration: 0.6, ease: 'power2.out' }, 0);
+      const w1 = lineIn(tl, '#zstd-line1', 0.5);
+      lineOut(tl, w1, 4.10);
+      const w2 = lineIn(tl, '#zstd-line2', 4.50);
+      lineOut(tl, w2, 8.40);
+      tl.to('#zstd-flash', { opacity: 1, duration: 0.35, ease: 'power2.in' }, 8.65);
+      tl.eventCallback('onUpdate', stg.render);
+      window.__timelines['zstd'] = tl;
+      stg.render();
+    })();
+  </script>
+</template>

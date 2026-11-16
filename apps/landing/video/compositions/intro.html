@@ -1,0 +1,87 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; font-family: Inter, sans-serif; color: #EEF2F7; }
+    .line { position: absolute; left: 10%; right: 10%; bottom: 11%; font-size: 54px; font-weight: 700; letter-spacing: -0.02em; text-align: center; line-height: 1.2; }
+    .w { display: inline-block; opacity: 0; }
+    .acc { color: #F5B400; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    #intro-box { position: absolute; left: 380px; top: 290px; width: 440px; height: 300px; }
+    #intro-body { position: absolute; inset: 0; background: #1C2A44; border: 3px solid #3B4D70; border-radius: 14px; }
+    #intro-lid { position: absolute; left: -8px; right: -8px; top: -6px; height: 48px; background: #2A3C60; border: 3px solid #4A5F8A; border-radius: 10px; transform-origin: 50% 100%; }
+    #intro-tag { position: absolute; left: 0; right: 0; top: 130px; text-align: center; font-size: 30px; font-weight: 600; color: #C8D2E4; }
+    .f { position: absolute; width: 44px; height: 56px; border-radius: 6px; background: #8FA7D6; left: 198px; top: 160px; opacity: 0; }
+    #intro-disk { position: absolute; left: 1120px; top: 330px; width: 440px; }
+    #intro-disklabel { font-size: 28px; font-weight: 600; color: #C8D2E4; margin-bottom: 16px; }
+    #intro-bar { width: 100%; height: 46px; border: 3px solid #3B4D70; border-radius: 10px; overflow: hidden; background: #111B30; }
+    #intro-fill { height: 100%; width: 100%; background: #4C7BD9; transform-origin: 0 50%; }
+    #intro-timer { margin-top: 28px; font-size: 64px; font-weight: 700; }
+    #intro-full { display: inline-block; margin-top: 14px; padding: 8px 18px; border-radius: 8px; background: #E5484D; color: #fff; font-size: 28px; font-weight: 700; opacity: 0; }
+  
+    /* polish */
+    .ck, .pr, .nd, #cdc-ins, .f { background-image: linear-gradient(180deg, rgba(255,255,255,.26) 0%, rgba(255,255,255,.06) 45%, rgba(0,0,0,.10) 100%); box-shadow: 0 14px 34px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.30), inset 0 -1px 0 rgba(0,0,0,.25); }
+    .line { text-shadow: 0 3px 28px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.5); }
+    .lab, .vl, #zstd-tag, #merkle-tag, #parity-tag, #intro-disklabel, #cdc-chg, #delta-count, #mount-ready, #parity-lost, #parity-ok { text-transform: uppercase; letter-spacing: .10em; font-weight: 600; }
+    #intro-body, #mount-body { background-image: linear-gradient(160deg, #24365A 0%, #16233C 100%); box-shadow: 0 30px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.12); }
+    #intro-lid, #mount-lid { background-image: linear-gradient(180deg, #3A4F7E, #27395E); box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+    #mount-drive, #mount-plug { box-shadow: 0 0 0 6px rgba(245,180,0,.18), 0 0 60px rgba(245,180,0,.45), 0 14px 34px rgba(0,0,0,.45); background-image: linear-gradient(180deg, #FFD24A, #E9A800); }
+    #mount-cable { box-shadow: 0 0 24px rgba(245,180,0,.55); }
+    #merkle-root { box-shadow: 0 0 40px rgba(238,242,247,.35), 0 14px 34px rgba(0,0,0,.45); }
+    #intro-bar { box-shadow: inset 0 2px 8px rgba(0,0,0,.6); }
+    #intro-fill { background-image: linear-gradient(90deg, #4C7BD9, #6E9BF0); }
+    #intro-full { box-shadow: 0 0 40px rgba(229,72,77,.55); }
+    .read .n { text-shadow: 0 0 40px rgba(245,180,0,.25); }
+    #outro-hero { text-shadow: 0 0 60px rgba(245,180,0,.25), 0 4px 30px rgba(0,0,0,.6); }
+  </style>
+  <div id="root" data-composition-id="intro">
+    <div id="intro-box" data-layout-allow-overflow>
+      <div id="intro-body"></div>
+      <div class="f" id="intro-f1"></div><div class="f" id="intro-f2"></div><div class="f" id="intro-f3"></div><div class="f" id="intro-f4"></div>
+      <div class="f" id="intro-f5"></div><div class="f" id="intro-f6"></div><div class="f" id="intro-f7"></div><div class="f" id="intro-f8"></div>
+      <div class="f" id="intro-f9"></div><div class="f" id="intro-f10"></div><div class="f" id="intro-f11"></div><div class="f" id="intro-f12"></div>
+      <div id="intro-lid"></div>
+      <div id="intro-tag" class="mono">jeu.7z · 50 Go</div>
+    </div>
+    <div id="intro-disk">
+      <div id="intro-disklabel">Disque C:</div>
+      <div id="intro-bar"><div id="intro-fill"></div></div>
+      <div id="intro-timer" class="mono">0:00</div>
+      <div id="intro-full">Disque plein</div>
+    </div>
+    <p class="line" id="intro-line">Pour lire un seul fichier, il faut <b>tout sortir</b>.</p>
+  </div>
+  <script>
+    function vwords(sel) {
+      const el = document.querySelector(sel); const out = [];
+      [...el.childNodes].forEach(n => {
+        if (n.nodeType === 3) { { const raw = n.textContent; raw.trim().split(/\s+/).filter(Boolean).forEach((w, i) => { if (i === 0 && out.length && !/^\s/.test(raw)) { out[out.length - 1].textContent += w; return; } const s = document.createElement('span'); s.className = 'w'; s.textContent = w; out.push(s); }); } }
+        else { const s = document.createElement('span'); s.className = 'w acc'; s.textContent = n.textContent; out.push(s); }
+      });
+      el.innerHTML = ''; out.forEach(s => { el.appendChild(s); el.appendChild(document.createTextNode(' ')); });
+      return out;
+    }
+    function lineIn(tl, sel, at) { const w = vwords(sel); tl.fromTo(w, { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.13, stagger: 0.067, ease: 'power4.out' }, at); return w; }
+    function lineOut(tl, w, at) { tl.to(w, { opacity: 0, filter: 'blur(6px)', duration: 0.15, stagger: 0.025, ease: 'power3.in' }, at); }
+
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo('#intro-box', { y: 30 }, { y: 0, duration: 0.6, ease: 'expo.out' }, 0);
+    tl.fromTo('#intro-disk', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: 'expo.out' }, 0.45);
+    tl.fromTo('#intro-fill', { scaleX: 0.4 }, { scaleX: 0.4, duration: 0.01 }, 0);
+    const w1 = lineIn(tl, '#intro-line', 1.0);
+    tl.to('#intro-lid', { rotateX: -110, duration: 0.5, ease: 'power3.out' }, 1.8);
+    const files = gsap.utils.toArray('.f');
+    files.forEach((f, i) => {
+      const t0 = 2.1 + i * 0.3;
+      tl.fromTo(f, { opacity: 0, x: 0, y: 0 }, { opacity: 1, x: 760 + (i % 3) * 20, y: 20 + (i % 4) * 8, duration: 0.5, ease: 'power2.inOut' }, t0);
+      tl.to(f, { opacity: 0, duration: 0.15 }, t0 + 0.5);
+    });
+    tl.to('#intro-fill', { scaleX: 1, duration: 3.6, ease: 'none' }, 2.1);
+    const clock = { t: 0 };
+    const timer = document.getElementById('intro-timer');
+    tl.to(clock, { t: 900, duration: 3.6, ease: 'none', onUpdate: () => { const s = Math.round(clock.t); timer.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); } }, 2.1);
+    tl.to('#intro-fill', { backgroundColor: '#E5484D', duration: 0.3 }, 5.7);
+    tl.fromTo('#intro-full', { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(1.4)' }, 5.8);
+    lineOut(tl, w1, 7.4);
+    tl.to(['#intro-box', '#intro-disk'], { opacity: 0, filter: 'blur(8px)', duration: 0.25, ease: 'power3.in' }, 7.6);
+    window.__timelines['intro'] = tl;
+  </script>
+</template>

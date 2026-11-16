@@ -1,0 +1,41 @@
+{
+  "lang": "fr",
+  "speed": 1,
+  "lines": [
+    {
+      "id": "intro",
+      "text": "Une archive classique : pour lire un seul fichier, il faut tout extraire. Un quart d'heure, et un disque plein."
+    },
+    {
+      "id": "mount",
+      "text": "VAULT fait l'inverse : on branche l'archive comme un disque. Les fichiers apparaissent en moins d'une seconde."
+    },
+    {
+      "id": "cdc",
+      "text": "Comment ? Les données sont coupées en morceaux, là où le contenu le décide. Ajoutez dix octets au début : un seul morceau change, les autres restent identiques."
+    },
+    {
+      "id": "zstd",
+      "text": "Chaque morceau est compressé seul. Pour en lire un, on décompresse soixante-quatre kilo-octets, pas tout ce qui précède."
+    },
+    {
+      "id": "merkle",
+      "text": "Chaque morceau a une empreinte, résumée dans un arbre jusqu'à une racine. Un octet abîmé, et l'on sait exactement où."
+    },
+    {
+      "id": "parity",
+      "text": "Trois à cinq pour cent de parité suffisent à reconstruire un morceau perdu, sans rien retélécharger."
+    },
+    {
+      "id": "delta",
+      "text": "Nouvelle version du jeu ? Seuls les morceaux changés voyagent."
+    },
+    {
+      "id": "outro",
+      "text": "Une seule découpe sert à tout. L'intelligence à l'encodage ; un lecteur simple, rapide, prévisible."
+    }
+  ],
+  "bgm": {
+    "mode": "none"
+  }
+}

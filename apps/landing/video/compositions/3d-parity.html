@@ -1,0 +1,89 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: Inter, sans-serif; color: #EEF2F7; background: #0B1220; }
+    #parity-gl { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+    #parity-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11,18,32,.25) 0%, rgba(11,18,32,0) 28%, rgba(11,18,32,0) 58%, rgba(11,18,32,.88) 100%); }
+    #parity-vig { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(0,0,0,.45) 100%); }
+    #parity-flash { position: absolute; inset: 0; background: #0B1220; opacity: 0; }
+    .line { position: absolute; left: 10%; right: 10%; bottom: 11%; font-size: 56px; font-weight: 700; letter-spacing: -0.02em; text-align: center; line-height: 1.2; text-shadow: 0 3px 28px rgba(0,0,0,.8), 0 1px 2px rgba(0,0,0,.7); }
+    .w { display: inline-block; opacity: 0; }
+    .acc { color: #F5B400; }
+  </style>
+  <div id="root" data-composition-id="parity" data-layout-allow-overflow data-layout-allow-overlap>
+    <canvas id="parity-gl" width="1920" height="1080"></canvas>
+    <div id="parity-vig"></div>
+    <div id="parity-shade"></div>
+    <p class="line" id="parity-line1">3 à 5 % de <b>parité</b> : on répare sans retélécharger.</p>
+    
+    <div id="parity-flash"></div>
+  </div>
+  <script>
+    function vwords(sel) {
+      const el = document.querySelector(sel); const out = [];
+      [...el.childNodes].forEach(n => {
+        if (n.nodeType === 3) { const raw = n.textContent; raw.trim().split(' ').filter(Boolean).forEach((w, i) => { if (i === 0 && out.length && raw.charAt(0) !== ' ') { out[out.length - 1].textContent += w; return; } const s = document.createElement('span'); s.className = 'w'; s.textContent = w; out.push(s); }); }
+        else { const s = document.createElement('span'); s.className = 'w acc'; s.textContent = n.textContent; out.push(s); }
+      });
+      el.innerHTML = ''; out.forEach(s => { el.appendChild(s); el.appendChild(document.createTextNode(' ')); });
+      return out;
+    }
+    function lineIn(tl, sel, at) { const w = vwords(sel); tl.fromTo(w, { opacity: 0, y: 18, filter: 'blur(6px)' }, { opacity: 1, y: 0, filter: 'blur(0px)', duration: 0.3, stagger: 0.06, ease: 'power4.out' }, at); return w; }
+    function lineOut(tl, w, at) { tl.to(w, { opacity: 0, y: -10, filter: 'blur(6px)', duration: 0.2, stagger: 0.02, ease: 'power3.in' }, at); }
+
+    (function () {
+      const T = 8, V = window.V3D, PAL = V.PAL;
+      const tl = gsap.timeline({ paused: true });
+      const stg = V.stage(document.getElementById('parity-gl'), { seed: 516 });
+      const { scene, st, rng } = stg;
+      const C = PAL.chunks.map(c => new THREE.Color(c));
+      const col = (mat, hex, at, d) => { const c = new THREE.Color(hex); tl.to(mat.color, { r: c.r, g: c.g, b: c.b, duration: d || 0.3 }, at); };
+      const glow = (mat, hex, i, at, d) => { const c = new THREE.Color(hex); tl.to(mat.emissive, { r: c.r, g: c.g, b: c.b, duration: d || 0.3 }, at); tl.to(mat, { emissiveIntensity: i, duration: d || 0.3 }, at); };
+      // --- scene: parity ---
+      // A chunk shatters; neighbours and the two parity blocks weave it back.
+      const chunks = [], X = i => -5.9 + i * 1.3;
+      for (let i = 0; i < 8; i++) { const c = V.box(1.08, 1.05, 1.05, PAL.chunks[i]); c.position.set(X(i), -0.65, 0); scene.add(c); chunks.push(c); }
+      const par = [];
+      for (let i = 0; i < 2; i++) { const p = V.box(1.08, 1.05, 1.05, PAL.amber, { glow: 0.3 }); p.position.set(X(8) + 0.35 + i * 1.3, -0.65, 0); scene.add(p); par.push(p); }
+      const lost = chunks[4], at0 = lost.position.clone();
+      const frags = [];
+      for (let i = 0; i < 16; i++) { const f = V.box(0.28, 0.28, 0.28, PAL.chunks[4], { radius: 0.03, outline: 0.02 }); f.position.copy(at0); f.scale.setScalar(0.01); scene.add(f); frags.push(f); }
+      const threads = [];
+      chunks.forEach((c, i) => { if (i === 4) return; const r = V.rod(PAL.cyan, 0.03); r.setEnds(new THREE.Vector3(c.position.x, 0.2, 0), new THREE.Vector3(at0.x, 0.2, 0)); r.material.opacity = 0; scene.add(r); threads.push(r); });
+      par.forEach(p => { const r = V.rod(PAL.amber, 0.04); r.setEnds(new THREE.Vector3(p.position.x, 0.2, 0), new THREE.Vector3(at0.x, 0.2, 0)); r.material.opacity = 0; scene.add(r); threads.push(r); });
+      // shatter
+      col(lost.fill.material, PAL.red, 1.5, 0.3); glow(lost.fill.material, PAL.red, 0.9, 1.5, 0.3);
+      tl.to(lost.position, { y: -0.5, duration: 0.06, yoyo: true, repeat: 5 }, 1.5);
+      tl.to(lost.scale, { x: 0.01, y: 0.01, z: 0.01, duration: 0.18, ease: 'power3.in' }, 1.95);
+      frags.forEach(f => {
+        const a = rng() * Math.PI * 2, u = rng() * 2 - 1, sp = 1.2 + rng() * 1.6;
+        tl.to(f.scale, { x: 1, y: 1, z: 1, duration: 0.08 }, 1.95);
+        tl.to(f.position, { x: at0.x + Math.cos(a) * sp * 1.4, z: at0.z + Math.sin(a) * sp * 0.8, duration: 0.9, ease: 'power2.out' }, 1.98);
+        tl.to(f.position, { y: at0.y + 1.2 + u, duration: 0.45, ease: 'power2.out' }, 1.98);
+        tl.to(f.position, { y: -1.05, duration: 0.5, ease: 'power2.in' }, 2.43);
+        tl.to(f.rotation, { x: rng() * 4, y: rng() * 4, duration: 0.9 }, 1.98);
+        tl.to(f.scale, { x: 0.01, y: 0.01, z: 0.01, duration: 0.3 }, 3.1 + rng() * 0.3);
+      });
+      // threads weave, chunk rebuilds in cyan
+      threads.forEach((r, i) => tl.to(r.material, { opacity: 0.95, duration: 0.25 }, 3.0 + i * 0.09));
+      par.forEach(p => { glow(p.fill.material, PAL.amber, 1.0, 3.5, 0.2); tl.to(p.position, { y: -0.45, duration: 0.3, yoyo: true, repeat: 1, ease: 'sine.inOut' }, 3.5); });
+      col(lost.fill.material, PAL.cyan, 4.2, 0.1); glow(lost.fill.material, PAL.cyan, 0.9, 4.2, 0.2);
+      tl.to(lost.scale, { x: 1, y: 1, z: 1, duration: 0.6, ease: 'back.out(1.8)' }, 4.2);
+      tl.to(lost.rotation, { y: Math.PI * 2, duration: 0.8, ease: 'power2.out' }, 4.2);
+      threads.forEach(r => tl.to(r.material, { opacity: 0, duration: 0.4 }, 4.9));
+      glow(lost.fill.material, PAL.cyan, 0.2, 5.4, 0.6);
+      par.forEach(p => glow(p.fill.material, PAL.amber, 0.45, 5.0, 0.5));
+      // camera: push-in on the gap
+      st.cx = 0.6; st.cy = 3.8; st.cz = 15.5; st.tx = 0.4; st.ty = -0.2; st.tz = 0;
+      tl.to(st, { cx: -0.2, cy: 2.6, cz: 12.0, tx: -0.1, ty: -0.3, duration: T, ease: 'none' }, 0);
+
+      // --- captions + cut ---
+      tl.fromTo('#parity-flash', { opacity: 1 }, { opacity: 0, duration: 0.6, ease: 'power2.out' }, 0);
+      const w1 = lineIn(tl, '#parity-line1', 0.5);
+      lineOut(tl, w1, 7.40);
+      tl.to('#parity-flash', { opacity: 1, duration: 0.35, ease: 'power2.in' }, 7.65);
+      tl.eventCallback('onUpdate', stg.render);
+      window.__timelines['parity'] = tl;
+      stg.render();
+    })();
+  </script>
+</template>

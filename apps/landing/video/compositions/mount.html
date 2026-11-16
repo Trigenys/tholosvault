@@ -1,0 +1,85 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; font-family: Inter, sans-serif; color: #EEF2F7; }
+    .line { position: absolute; left: 10%; right: 10%; bottom: 11%; font-size: 54px; font-weight: 700; letter-spacing: -0.02em; text-align: center; line-height: 1.2; }
+    .w { display: inline-block; opacity: 0; }
+    .acc { color: #F5B400; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    #mount-box { position: absolute; left: 740px; top: 290px; width: 440px; height: 300px; }
+    #mount-body { position: absolute; inset: 0; background: #1C2A44; border: 3px solid #3B4D70; border-radius: 14px; }
+    #mount-lid { position: absolute; left: -8px; right: -8px; top: -6px; height: 48px; background: #2A3C60; border: 3px solid #4A5F8A; border-radius: 10px; }
+    #mount-tag { position: absolute; left: 0; right: 0; top: 130px; text-align: center; font-size: 30px; font-weight: 600; color: #C8D2E4; }
+    #mount-port { position: absolute; left: -6px; top: 140px; width: 24px; height: 60px; background: #0B1220; border: 3px solid #4A5F8A; border-radius: 4px; }
+    #mount-cable { position: absolute; left: 140px; top: 466px; width: 560px; height: 10px; background: #F5B400; border-radius: 5px; transform-origin: 0 50%; }
+    #mount-plug { position: absolute; left: 660px; top: 440px; width: 70px; height: 62px; background: #F5B400; border-radius: 8px; }
+    #mount-drive { position: absolute; left: 1050px; top: 230px; width: 96px; height: 96px; border-radius: 20px; background: #F5B400; color: #0B1220; font-size: 48px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+    #mount-tree { position: absolute; left: 1270px; top: 250px; width: 480px; font-size: 30px; color: #DCE3EF; }
+    .tr { padding: 8px 0; border-bottom: 1px solid #243352; opacity: 0; }
+    .tr.in { padding-left: 44px; }
+    #mount-ready { position: absolute; left: 1270px; top: 640px; font-size: 34px; font-weight: 700; color: #F5B400; opacity: 0; }
+  
+    /* polish */
+    .ck, .pr, .nd, #cdc-ins, .f { background-image: linear-gradient(180deg, rgba(255,255,255,.26) 0%, rgba(255,255,255,.06) 45%, rgba(0,0,0,.10) 100%); box-shadow: 0 14px 34px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.30), inset 0 -1px 0 rgba(0,0,0,.25); }
+    .line { text-shadow: 0 3px 28px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.5); }
+    .lab, .vl, #zstd-tag, #merkle-tag, #parity-tag, #intro-disklabel, #cdc-chg, #delta-count, #mount-ready, #parity-lost, #parity-ok { text-transform: uppercase; letter-spacing: .10em; font-weight: 600; }
+    #intro-body, #mount-body { background-image: linear-gradient(160deg, #24365A 0%, #16233C 100%); box-shadow: 0 30px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.12); }
+    #intro-lid, #mount-lid { background-image: linear-gradient(180deg, #3A4F7E, #27395E); box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+    #mount-drive, #mount-plug { box-shadow: 0 0 0 6px rgba(245,180,0,.18), 0 0 60px rgba(245,180,0,.45), 0 14px 34px rgba(0,0,0,.45); background-image: linear-gradient(180deg, #FFD24A, #E9A800); }
+    #mount-cable { box-shadow: 0 0 24px rgba(245,180,0,.55); }
+    #merkle-root { box-shadow: 0 0 40px rgba(238,242,247,.35), 0 14px 34px rgba(0,0,0,.45); }
+    #intro-bar { box-shadow: inset 0 2px 8px rgba(0,0,0,.6); }
+    #intro-fill { background-image: linear-gradient(90deg, #4C7BD9, #6E9BF0); }
+    #intro-full { box-shadow: 0 0 40px rgba(229,72,77,.55); }
+    .read .n { text-shadow: 0 0 40px rgba(245,180,0,.25); }
+    #outro-hero { text-shadow: 0 0 60px rgba(245,180,0,.25), 0 4px 30px rgba(0,0,0,.6); }
+  </style>
+  <div id="root" data-composition-id="mount">
+    <div id="mount-cable"></div>
+    <div id="mount-plug"></div>
+    <div id="mount-box" data-layout-allow-overflow>
+      <div id="mount-body"></div>
+      <div id="mount-lid"></div>
+      <div id="mount-port"></div>
+      <div id="mount-tag" class="mono">jeu.vault · 50 Go</div>
+    </div>
+    <div id="mount-drive">V:</div>
+    <div id="mount-tree" class="mono">
+      <div class="tr" id="mount-t1">Base/</div>
+      <div class="tr in" id="mount-t2">Assets/</div>
+      <div class="tr in" id="mount-t3">Binaries/</div>
+      <div class="tr in" id="mount-t4">Content/</div>
+      <div class="tr" id="mount-t5">DLC/</div>
+      <div class="tr" id="mount-t6">Civ7.exe</div>
+    </div>
+    <div id="mount-ready">prêt en 0,4 s</div>
+    <p class="line" id="mount-line">VAULT : on <b>branche</b> l'archive, on ne l'ouvre pas.</p>
+  </div>
+  <script>
+    function vwords(sel) {
+      const el = document.querySelector(sel); const out = [];
+      [...el.childNodes].forEach(n => {
+        if (n.nodeType === 3) { { const raw = n.textContent; raw.trim().split(/\s+/).filter(Boolean).forEach((w, i) => { if (i === 0 && out.length && !/^\s/.test(raw)) { out[out.length - 1].textContent += w; return; } const s = document.createElement('span'); s.className = 'w'; s.textContent = w; out.push(s); }); } }
+        else { const s = document.createElement('span'); s.className = 'w acc'; s.textContent = n.textContent; out.push(s); }
+      });
+      el.innerHTML = ''; out.forEach(s => { el.appendChild(s); el.appendChild(document.createTextNode(' ')); });
+      return out;
+    }
+    function lineIn(tl, sel, at) { const w = vwords(sel); tl.fromTo(w, { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.13, stagger: 0.067, ease: 'power4.out' }, at); return w; }
+    function lineOut(tl, w, at) { tl.to(w, { opacity: 0, filter: 'blur(6px)', duration: 0.15, stagger: 0.025, ease: 'power3.in' }, at); }
+
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo('#mount-box', { opacity: 0, filter: 'blur(8px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.3, ease: 'power2.out' }, 0);
+    tl.fromTo('#mount-cable', { scaleX: 0 }, { scaleX: 1, duration: 0.7, ease: 'power2.inOut' }, 0.5);
+    tl.fromTo('#mount-plug', { x: -560, opacity: 0 }, { x: 0, opacity: 1, duration: 0.7, ease: 'power2.inOut' }, 0.5);
+    tl.to('#mount-plug', { x: 10, duration: 0.12, ease: 'power3.in' }, 1.2);
+    tl.fromTo('#mount-drive', { scale: 0.4, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: 'back.out(1.6)' }, 1.4);
+    tl.fromTo('.tr', { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.3, stagger: 0.05, ease: 'expo.out' }, 1.55);
+    tl.fromTo('#mount-ready', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 2.0);
+    const w1 = lineIn(tl, '#mount-line', 2.4);
+    tl.to('#mount-t6', { color: '#F5B400', x: 14, duration: 0.4, ease: 'expo.out' }, 4.3);
+    tl.to('#mount-drive', { scale: 1.08, duration: 0.25, yoyo: true, repeat: 1, ease: 'power2.inOut' }, 4.3);
+    lineOut(tl, w1, 6.4);
+    tl.to(['#mount-box', '#mount-cable', '#mount-plug', '#mount-drive', '#mount-tree', '#mount-ready'], { opacity: 0, filter: 'blur(8px)', duration: 0.25, ease: 'power3.in' }, 6.6);
+    window.__timelines['mount'] = tl;
+  </script>
+</template>

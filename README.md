@@ -16,7 +16,9 @@ documentation produit et technique.
 | [docs/produit/stack.md](docs/produit/stack.md) | Comparaison et choix de stack par surface, briques réutilisées |
 | [docs/recherche/](docs/recherche/) | Rapport *Archives montables et compression prospective* : état de l'art, thèses H1–H8, innovations E1–E5, protocole MVP |
 | [docs/engineering/lessons-learned.md](docs/engineering/lessons-learned.md) | Mémoire des échecs et leçons |
-| [docs/adr/](docs/adr/) | Décisions d'architecture |
+| [docs/adr/](docs/adr/) | Décisions d'architecture (ADR-0001 : open core, Apache-2.0) |
+| [docs/produit/nom.md](docs/produit/nom.md) | Shortlist de noms publics vérifiée (D11) |
+| [apps/landing/video/](apps/landing/video/) | Source HyperFrames de la vidéo « VAULT, le principe » ; rendu final dans `docs/media/` |
 | [PASSATION.md](PASSATION.md) | Journal de passation (ajout seulement) |
 
 ## Arborescence prévue
@@ -44,4 +46,4 @@ Rust stable, pnpm 9+, Node 22+. Montage : fuse3 (Linux), WinFsp (Windows), macFU
 
 ## Licence
 
-À trancher (décision D7 du cadrage) ; proposition : Apache-2.0 pour le format et `vault-core`.
+Open core (ADR-0001) : format, `vault-core`, `vault-cli` et `vault-mount` sous [Apache-2.0](LICENSE) ; apps et console propriétaires.

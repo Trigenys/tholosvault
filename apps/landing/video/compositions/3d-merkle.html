@@ -1,0 +1,88 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; font-family: Inter, sans-serif; color: #EEF2F7; background: #0B1220; }
+    #merkle-gl { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+    #merkle-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11,18,32,.25) 0%, rgba(11,18,32,0) 28%, rgba(11,18,32,0) 58%, rgba(11,18,32,.88) 100%); }
+    #merkle-vig { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(0,0,0,.45) 100%); }
+    #merkle-flash { position: absolute; inset: 0; background: #0B1220; opacity: 0; }
+    .line { position: absolute; left: 10%; right: 10%; bottom: 11%; font-size: 56px; font-weight: 700; letter-spacing: -0.02em; text-align: center; line-height: 1.2; text-shadow: 0 3px 28px rgba(0,0,0,.8), 0 1px 2px rgba(0,0,0,.7); }
+    .w { display: inline-block; opacity: 0; }
+    .acc { color: #F5B400; }
+  </style>
+  <div id="root" data-composition-id="merkle" data-layout-allow-overflow data-layout-allow-overlap>
+    <canvas id="merkle-gl" width="1920" height="1080"></canvas>
+    <div id="merkle-vig"></div>
+    <div id="merkle-shade"></div>
+    <p class="line" id="merkle-line1">Une <b>empreinte</b> par morceau, résumées en une racine.</p>
+    <p class="line" id="merkle-line2">Un octet abîmé : on sait <b>exactement où</b>.</p>
+    <div id="merkle-flash"></div>
+  </div>
+  <script>
+    function vwords(sel) {
+      const el = document.querySelector(sel); const out = [];
+      [...el.childNodes].forEach(n => {
+        if (n.nodeType === 3) { const raw = n.textContent; raw.trim().split(' ').filter(Boolean).forEach((w, i) => { if (i === 0 && out.length && raw.charAt(0) !== ' ') { out[out.length - 1].textContent += w; return; } const s = document.createElement('span'); s.className = 'w'; s.textContent = w; out.push(s); }); }
+        else { const s = document.createElement('span'); s.className = 'w acc'; s.textContent = n.textContent; out.push(s); }
+      });
+      el.innerHTML = ''; out.forEach(s => { el.appendChild(s); el.appendChild(document.createTextNode(' ')); });
+      return out;
+    }
+    function lineIn(tl, sel, at) { const w = vwords(sel); tl.fromTo(w, { opacity: 0, y: 18, filter: 'blur(6px)' }, { opacity: 1, y: 0, filter: 'blur(0px)', duration: 0.3, stagger: 0.06, ease: 'power4.out' }, at); return w; }
+    function lineOut(tl, w, at) { tl.to(w, { opacity: 0, y: -10, filter: 'blur(6px)', duration: 0.2, stagger: 0.02, ease: 'power3.in' }, at); }
+
+    (function () {
+      const T = 9, V = window.V3D, PAL = V.PAL;
+      const tl = gsap.timeline({ paused: true });
+      const stg = V.stage(document.getElementById('merkle-gl'), { seed: 415 });
+      const { scene, st, rng } = stg;
+      const C = PAL.chunks.map(c => new THREE.Color(c));
+      const col = (mat, hex, at, d) => { const c = new THREE.Color(hex); tl.to(mat.color, { r: c.r, g: c.g, b: c.b, duration: d || 0.3 }, at); };
+      const glow = (mat, hex, i, at, d) => { const c = new THREE.Color(hex); tl.to(mat.emissive, { r: c.r, g: c.g, b: c.b, duration: d || 0.3 }, at); tl.to(mat, { emissiveIntensity: i, duration: d || 0.3 }, at); };
+      // --- scene: merkle ---
+      // Fingerprints rise from the chunks and merge into a tree; a corrupted byte lights the path to the root.
+      const chunks = [], leaves = [], l1 = [], l2 = [], rods = {};
+      const X = i => -5.6 + i * 1.6;
+      for (let i = 0; i < 8; i++) {
+        const c = V.box(1.3, 1.1, 1.1, PAL.chunks[i]); c.position.set(X(i), -0.65, 0); scene.add(c); chunks.push(c);
+        const o = V.orb(0.2, PAL.chunks[i], 0.7); o.position.set(X(i), 0.9, 0); o.scale.setScalar(0.01); scene.add(o); leaves.push(o);
+      }
+      const P1 = i => (X(i * 2) + X(i * 2 + 1)) / 2, P2 = i => (P1(i * 2) + P1(i * 2 + 1)) / 2;
+      for (let i = 0; i < 4; i++) { const o = V.orb(0.24, 0x93A1BC, 0.5); o.position.set(P1(i), 2.5, 0); o.scale.setScalar(0.01); scene.add(o); l1.push(o); }
+      for (let i = 0; i < 2; i++) { const o = V.orb(0.28, 0xC8D2E4, 0.5); o.position.set(P2(i), 4.0, 0); o.scale.setScalar(0.01); scene.add(o); l2.push(o); }
+      const root = V.orb(0.42, 0xEEF2F7, 0.5); root.position.set((P2(0) + P2(1)) / 2, 5.5, 0); root.scale.setScalar(0.01); scene.add(root);
+      const link = (name, a, b) => { const r = V.rod(0x3B4D70, 0.035); r.setEnds(a.position, b.position); r.material.opacity = 0; scene.add(r); rods[name] = r; return r; };
+      for (let i = 0; i < 8; i++) link('l' + i, leaves[i], l1[Math.floor(i / 2)]);
+      for (let i = 0; i < 4; i++) link('m' + i, l1[i], l2[Math.floor(i / 2)]);
+      for (let i = 0; i < 2; i++) link('t' + i, l2[i], root);
+      const pop = (o, at) => tl.to(o.scale, { x: 1, y: 1, z: 1, duration: 0.35, ease: 'back.out(2)' }, at);
+      const show = (r, at) => tl.to(r.material, { opacity: 1, duration: 0.3 }, at);
+      leaves.forEach((o, i) => pop(o, 1.0 + i * 0.07));
+      for (let i = 0; i < 8; i++) show(rods['l' + i], 1.9 + i * 0.05);
+      l1.forEach((o, i) => pop(o, 2.2 + i * 0.08));
+      for (let i = 0; i < 4; i++) show(rods['m' + i], 2.7 + i * 0.06);
+      l2.forEach((o, i) => pop(o, 3.0 + i * 0.1));
+      for (let i = 0; i < 2; i++) show(rods['t' + i], 3.4 + i * 0.08);
+      pop(root, 3.7);
+      tl.to(root.scale, { x: 1.25, y: 1.25, z: 1.25, duration: 0.25, yoyo: true, repeat: 1 }, 4.05);
+      // one damaged byte: chunk 4 and its path turn red
+      const red = (o, at) => { col(o.fill.material, PAL.red, at, 0.25); glow(o.fill.material, PAL.red, 0.9, at, 0.25); };
+      const redRod = (r, at) => { col(r.material, PAL.red, at, 0.25); tl.to(r.scale, { x: 2.2, z: 2.2, duration: 0.25 }, at); };
+      red(chunks[4], 4.8); tl.to(chunks[4].position, { y: -0.45, duration: 0.07, yoyo: true, repeat: 5 }, 4.8);
+      red(leaves[4], 5.05); redRod(rods['l4'], 5.25); red(l1[2], 5.45); redRod(rods['m2'], 5.65); red(l2[1], 5.85); redRod(rods['t1'], 6.05); red(root, 6.25);
+      // camera: tilt up along the tree
+      st.cx = 0.5; st.cy = 2.0; st.cz = 13.5; st.tx = 0; st.ty = 0.6; st.tz = 0;
+      tl.to(st, { cx: -0.6, cy: 4.6, cz: 12.2, tx: 0.2, ty: 2.6, duration: T, ease: 'none' }, 0);
+
+      // --- captions + cut ---
+      tl.fromTo('#merkle-flash', { opacity: 1 }, { opacity: 0, duration: 0.6, ease: 'power2.out' }, 0);
+      const w1 = lineIn(tl, '#merkle-line1', 0.5);
+      lineOut(tl, w1, 4.10);
+      const w2 = lineIn(tl, '#merkle-line2', 4.50);
+      lineOut(tl, w2, 8.40);
+      tl.to('#merkle-flash', { opacity: 1, duration: 0.35, ease: 'power2.in' }, 8.65);
+      tl.eventCallback('onUpdate', stg.render);
+      window.__timelines['merkle'] = tl;
+      stg.render();
+    })();
+  </script>
+</template>

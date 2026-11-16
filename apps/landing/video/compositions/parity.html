@@ -1,0 +1,90 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; font-family: Inter, sans-serif; color: #EEF2F7; }
+    .line { position: absolute; left: 10%; right: 10%; bottom: 11%; font-size: 54px; font-weight: 700; letter-spacing: -0.02em; text-align: center; line-height: 1.2; }
+    .w { display: inline-block; opacity: 0; }
+    .acc { color: #F5B400; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .ck { position: absolute; top: 420px; width: 120px; height: 70px; border-radius: 8px; opacity: 0; border: 3px solid transparent; }
+    .pr { position: absolute; top: 420px; width: 120px; height: 70px; border-radius: 8px; background: #F5B400; color: #0B1220; font-weight: 800; font-size: 28px; display: flex; align-items: center; justify-content: center; opacity: 0; }
+    #parity-tag { position: absolute; left: 1060px; top: 370px; width: 660px; text-align: right; font-size: 28px; color: #F5B400; font-weight: 600; opacity: 0; }
+    #parity-lost { position: absolute; left: 860px; top: 364px; width: 120px; text-align: center; font-size: 28px; color: #E5484D; font-weight: 600; opacity: 0; }
+    #parity-ok { position: absolute; left: 820px; top: 510px; width: 200px; text-align: center; font-size: 28px; color: #5BB98C; font-weight: 600; opacity: 0; }
+    svg { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+    path { fill: none; stroke: #F5B400; stroke-width: 3; opacity: 0; }
+  
+    /* polish */
+    .ck, .pr, .nd, #cdc-ins, .f { background-image: linear-gradient(180deg, rgba(255,255,255,.26) 0%, rgba(255,255,255,.06) 45%, rgba(0,0,0,.10) 100%); box-shadow: 0 14px 34px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.30), inset 0 -1px 0 rgba(0,0,0,.25); }
+    .line { text-shadow: 0 3px 28px rgba(0,0,0,.65), 0 1px 2px rgba(0,0,0,.5); }
+    .lab, .vl, #zstd-tag, #merkle-tag, #parity-tag, #intro-disklabel, #cdc-chg, #delta-count, #mount-ready, #parity-lost, #parity-ok { text-transform: uppercase; letter-spacing: .10em; font-weight: 600; }
+    #intro-body, #mount-body { background-image: linear-gradient(160deg, #24365A 0%, #16233C 100%); box-shadow: 0 30px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.12); }
+    #intro-lid, #mount-lid { background-image: linear-gradient(180deg, #3A4F7E, #27395E); box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+    #mount-drive, #mount-plug { box-shadow: 0 0 0 6px rgba(245,180,0,.18), 0 0 60px rgba(245,180,0,.45), 0 14px 34px rgba(0,0,0,.45); background-image: linear-gradient(180deg, #FFD24A, #E9A800); }
+    #mount-cable { box-shadow: 0 0 24px rgba(245,180,0,.55); }
+    #merkle-root { box-shadow: 0 0 40px rgba(238,242,247,.35), 0 14px 34px rgba(0,0,0,.45); }
+    #intro-bar { box-shadow: inset 0 2px 8px rgba(0,0,0,.6); }
+    #intro-fill { background-image: linear-gradient(90deg, #4C7BD9, #6E9BF0); }
+    #intro-full { box-shadow: 0 0 40px rgba(229,72,77,.55); }
+    .read .n { text-shadow: 0 0 40px rgba(245,180,0,.25); }
+    #outro-hero { text-shadow: 0 0 60px rgba(245,180,0,.25), 0 4px 30px rgba(0,0,0,.6); }
+  </style>
+  <div id="root" data-composition-id="parity">
+    <svg viewBox="0 0 1920 1080" id="parity-svg">
+      <path id="parity-p0" d="M 360 490 C 360 600, 920 600, 920 490"/>
+      <path id="parity-p1" d="M 500 490 C 500 590, 920 590, 920 490"/>
+      <path id="parity-p2" d="M 640 490 C 640 580, 920 580, 920 490"/>
+      <path id="parity-p3" d="M 780 490 C 780 560, 920 560, 920 490"/>
+      <path id="parity-p5" d="M 1060 490 C 1060 560, 920 560, 920 490"/>
+      <path id="parity-p6" d="M 1200 490 C 1200 580, 920 580, 920 490"/>
+      <path id="parity-p7" d="M 1340 490 C 1340 590, 920 590, 920 490"/>
+      <path id="parity-p8" d="M 1500 490 C 1500 620, 920 620, 920 490"/>
+      <path id="parity-p9" d="M 1640 490 C 1640 640, 920 640, 920 490"/>
+    </svg>
+    <div class="ck" id="parity-c0" style="left: 300px; background-color: #4C7BD9;"></div>
+    <div class="ck" id="parity-c1" style="left: 440px; background-color: #5BB98C;"></div>
+    <div class="ck" id="parity-c2" style="left: 580px; background-color: #B08BE6;"></div>
+    <div class="ck" id="parity-c3" style="left: 720px; background-color: #E0905A;"></div>
+    <div class="ck" id="parity-c4" style="left: 860px; background-color: #E5484D;"></div>
+    <div class="ck" id="parity-c5" style="left: 1000px; background-color: #C9A54F;"></div>
+    <div class="ck" id="parity-c6" style="left: 1140px; background-color: #7A8FE0;"></div>
+    <div class="ck" id="parity-c7" style="left: 1280px; background-color: #D97BA6;"></div>
+    <div class="pr" id="parity-pa" style="left: 1440px;">P1</div>
+    <div class="pr" id="parity-pb" style="left: 1580px;">P2</div>
+    <div id="parity-tag">parité Reed-Solomon, 3 à 5 %</div>
+    <div id="parity-lost">perdu</div>
+    <div id="parity-ok">reconstruit</div>
+    <p class="line" id="parity-line">3 à 5 % de <b>parité</b> : on répare sans retélécharger.</p>
+  </div>
+  <script>
+    function vwords(sel) {
+      const el = document.querySelector(sel); const out = [];
+      [...el.childNodes].forEach(n => {
+        if (n.nodeType === 3) { { const raw = n.textContent; raw.trim().split(/\s+/).filter(Boolean).forEach((w, i) => { if (i === 0 && out.length && !/^\s/.test(raw)) { out[out.length - 1].textContent += w; return; } const s = document.createElement('span'); s.className = 'w'; s.textContent = w; out.push(s); }); } }
+        else { const s = document.createElement('span'); s.className = 'w acc'; s.textContent = n.textContent; out.push(s); }
+      });
+      el.innerHTML = ''; out.forEach(s => { el.appendChild(s); el.appendChild(document.createTextNode(' ')); });
+      return out;
+    }
+    function lineIn(tl, sel, at) { const w = vwords(sel); tl.fromTo(w, { opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.13, stagger: 0.067, ease: 'power4.out' }, at); return w; }
+    function lineOut(tl, w, at) { tl.to(w, { opacity: 0, filter: 'blur(6px)', duration: 0.15, stagger: 0.025, ease: 'power3.in' }, at); }
+
+    const tl = gsap.timeline({ paused: true });
+    const C = gsap.utils.toArray('.ck'), P = gsap.utils.toArray('path');
+    tl.fromTo(C, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.04, ease: 'expo.out' }, 0.2);
+    tl.fromTo('.pr', { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.5, stagger: 0.1, ease: 'expo.out' }, 0.8);
+    tl.fromTo('#parity-tag', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 1.0);
+    const w1 = lineIn(tl, '#parity-line', 0.6);
+    tl.to('#parity-c4', { backgroundColor: 'rgba(229,72,77,0)', borderColor: '#E5484D', duration: 0.4 }, 1.9);
+    tl.fromTo('#parity-lost', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 2.0);
+    tl.fromTo(P, { opacity: 0 }, { opacity: 0.9, duration: 0.3, stagger: 0.07 }, 2.6);
+    tl.to('#parity-c4', { backgroundColor: '#4FB3C9', borderColor: '#4FB3C9', duration: 0.4 }, 3.8);
+    tl.to('#parity-c4', { scale: 1.1, duration: 0.2, ease: 'power2.out' }, 3.8);
+    tl.to('#parity-c4', { scale: 1, duration: 0.3, ease: 'power2.inOut' }, 4.0);
+    tl.to('#parity-lost', { opacity: 0, duration: 0.2 }, 3.8);
+    tl.fromTo('#parity-ok', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3, ease: 'expo.out' }, 4.1);
+    tl.to(P, { opacity: 0, duration: 0.4 }, 4.4);
+    lineOut(tl, w1, 7.3);
+    tl.to([C, '.pr', '#parity-tag', '#parity-ok', '#parity-svg'], { opacity: 0, filter: 'blur(8px)', duration: 0.25, ease: 'power3.in' }, 7.6);
+    window.__timelines['parity'] = tl;
+  </script>
+</template>

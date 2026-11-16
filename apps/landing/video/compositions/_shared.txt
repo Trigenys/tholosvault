@@ -1,0 +1,10 @@
+Shared snippets copied into every scene (kept here for reference only; not loaded).
+
+CSS:
+    #root { position: absolute; inset: 0; font-family: Inter, sans-serif; color: #EEF2F7; }
+    .line { position: absolute; left: 10%; right: 10%; bottom: 11%; font-size: 54px; font-weight: 700; letter-spacing: -0.02em; text-align: center; line-height: 1.2; }
+    .w { display: inline-block; opacity: 0; }
+    .acc { color: #F5B400; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+JS: vwords / lineIn / lineOut (word-by-word blur-in titles).

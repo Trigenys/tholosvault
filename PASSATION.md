@@ -13,3 +13,12 @@ Journal en ajout seulement. Chaque session ajoute une entrée datée en fin de f
   GitHub identifiées (fastcdc-rs, reed-solomon-simd, fuser, winfsp-rs, FSKitSample, dwarfs en Adapt).
 - Aucun code applicatif. Prochaines étapes : trancher D1–D11 (D6 licence/modèle et D11 nom avant la landing), adopter
   appfactory-project-automation pour la CI, créer `vault-core` et le protocole `bench/` (H1–H8).
+
+## 2026-11-16 12:22 — Décisions D6/D7, shortlist de noms, rangement des fichiers de session
+
+- D6 et D7 tranchés : open core + Apache-2.0 (`docs/adr/0001-modele-open-core-apache.md`, `LICENSE`). Cadrage et README mis à jour.
+- D11 : shortlist vérifiée dans `docs/produit/nom.md` (reco : chunkvault ou vaultfs) ; VAULT reste le nom de travail.
+- Fichiers de la session vidéo rangés : source HyperFrames → `apps/landing/video/` (sans rendus ni snapshots, ignorés par git),
+  rendu final v5 → `docs/media/VAULT-principe-v5.mp4` (38 Mo, suivi par git : passer à Git LFS si d'autres médias arrivent),
+  notes de recherche → `docs/recherche/notes/`. Rapport en doublon et anciens rendus supprimés.
+- Reste : D1–D5, D8–D10 ouverts ; CI appfactory ; `vault-core` ; nom public à acheter.
