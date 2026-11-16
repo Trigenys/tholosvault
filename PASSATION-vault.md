@@ -89,3 +89,26 @@
 **Pièges**
 - `reed-solomon-simd` exige des shards pairs et non vides ; `decode` ne renvoie que les originaux manquants.
 - clippy `single_range_in_vec_init` : construire un `Vec<Range>` d'un élément via `iter::once(..).collect()`.
+
+## 2026-11-16 16:07 — Dépôt GitHub Trigenys/tholosvault, première CI, enregistrement au registre
+
+**Objectif en cours** — Le dépôt public existe et la CI est verte ; prochaine étape : bench H1–H8, `read_range`, `vault-mount`, et décision sur la gouvernance / le board.
+**Fait**
+- `Trigenys/tholosvault` créé par l'utilisateur (public, description « Mountable, verifiable and deduplicated archive format with the tholos CLI, by Trigenys Group »). Remote `origin` ajouté, `main` poussé (3 commits : 20db4bb v0, 61fe1aa URL manifeste, 0423ca3 parité RS v1).
+- Première CI (run 43891855725) : `impact / analyze`, `rust (ubuntu-latest)`, `rust (windows-latest)` tous verts sur 0423ca3.
+- Registre : PR https://github.com/EagleFox31/project-registry/pull/72 (branche `registre/tholosvault`) ajoute l'entrée `tholosvault` (prototype, draft, portfolio, dépôt `application-principale` exposé). Tests du registre identiques avant/après (2 échecs préexistants sans lien). À merger par l'utilisateur.
+- Gouvernance appfactory : `plan` exécuté en lecture seule, en local, avec le cœur `src/governance` d'appfactory-project-automation et le token gh (le workflow exige un secret `APPFACTORY_GOVERNANCE_TOKEN` ou une GitHub App, non créés). Résultat : CREATE ruleset « AppFactory default branch governance », preset `solo` (pas de suppression ni force-push, PR obligatoire, fils de revue résolus, 0 approbation requise). **Non appliqué** : la PR obligatoire bloquerait les commits directs sur `main` pratiqués par les sessions actuelles ; décision utilisateur.
+- Pas de Git LFS : la vidéo de 38 Mo passe sous la limite de 100 Mo.
+**Décisions**
+- Description GitHub en anglais, une phrase, « by Trigenys Group », alignée sur les dépôts publics de l'org.
+- Board GitHub Project et releases (Release Please) : non posés, en attente d'accord explicite.
+**Reste à faire**
+1. Utilisateur : merger la PR 72 du registre ; trancher gouvernance (`apply` = passer au flux PR) et board/releases.
+2. Bench H1–H8 dans `bench/` (corpus, protocole, seuils bloquants L-002).
+3. Lecture par plage (`read_range`) et `vault-mount` (fuser / winfsp-rs).
+4. Réservations crate/npm et marque (utilisateur).
+**Pièges / contexte**
+- `gh repo create` est refusé par le filtre de permissions du mode auto : la création de dépôt revient à l'utilisateur.
+- Le clone du registre dans le scratchpad n'a pas d'identité git : poser `user.name`/`user.email` locaux avant de commiter.
+- `gh pr create` depuis un clone shallow exige `--head <branche>`.
+- Autre session (parité RS) a partagé ce checkout : vérifier `git status` avant tout commit, ne commiter que ses propres fichiers.
