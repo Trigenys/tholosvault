@@ -112,3 +112,19 @@
 - Le clone du registre dans le scratchpad n'a pas d'identité git : poser `user.name`/`user.email` locaux avant de commiter.
 - `gh pr create` depuis un clone shallow exige `--head <branche>`.
 - Autre session (parité RS) a partagé ce checkout : vérifier `git status` avant tout commit, ne commiter que ses propres fichiers.
+
+## 2026-11-16 16:13 — README public, gouvernance de branche appliquée
+
+**Objectif en cours** — Dépôt public présentable et protégé ; prochaine étape : bench H1–H8, `read_range`, `vault-mount`.
+**Fait**
+- README racine réécrit (promesse, tableau pourquoi, ce qui marche, démarrage, format, feuille de route, docs, licence), commit 5a99825.
+- Gouvernance appfactory : `.github/project-config.json` (preset `solo`) et `.github/workflows/repository-governance.yml` (manuel, action épinglée SHA 3fbf1825…), commit 6299760. Ruleset « AppFactory default branch governance » (id 27383387) **appliqué** en local via le cœur `src/governance` et le token gh, sur accord explicite ; second `plan` = NO-OP.
+- Conséquence : `main` n'accepte plus de push direct. Toute modification passe par une branche et une PR (0 approbation requise, fils de revue résolus, pas de force-push ni suppression).
+**Décisions**
+- Le workflow GitHub de gouvernance reste inactif tant que le secret `APPFACTORY_GOVERNANCE_TOKEN` (PAT fine-grained, Administration RW sur ce seul dépôt) ou la GitHub App n'est pas posé : à faire par l'utilisateur ; la réconciliation locale suffit en attendant.
+**Reste à faire**
+1. Utilisateur : merger la PR 72 du registre ; créer le secret de gouvernance si l'on veut le workflow et la réconciliation continue ; décider board / releases.
+2. Bench H1–H8 dans `bench/` ; `read_range` ; `vault-mount`.
+**Pièges / contexte**
+- Depuis l'application du ruleset, travailler sur une branche : `git switch -c <type>/<sujet>` puis `gh pr create`. Les sessions partageant ce checkout doivent faire de même.
+- `cancel-in-progress` de la CI annule le run d'un push précédent quand un second suit de près (5a99825 annulé par 6299760) : normal.
