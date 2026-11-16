@@ -81,3 +81,8 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
   d'ADR, chantier « encodage parallèle par groupe » pour réarmer le seuil.
 - **Leçon** : un seuil ne se relâche jamais pour faire passer la CI ; une réfutation se consigne (ADR +
   ici) et la métrique garde son seuil déclaré, visible dans chaque rapport.
+- **Suivi 2026-11-16** : encodage parallèle par tranches de colonnes livré (ADR-0003, « Suivi ») : 0,33–0,39
+  s/GB à ≥ 4 fils (÷ 3,2–3,7), sortie identique. Seuil **non réarmé** : rapport 2,3–3,5 à 4 fils, dominé par
+  la variance de la calibration BLAKE3 (0,11–0,18 s/GB sur le même hôte). Leçon ajoutée : un seuil relatif
+  n'est pas plus stable que son dénominateur ; calibrer sur le même volume et le même régime mémoire que la
+  mesure, sinon le rapport mesure la fréquence turbo.

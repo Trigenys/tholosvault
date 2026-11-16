@@ -28,6 +28,8 @@ use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::ops::Range;
 
+use reed_solomon_simd::ReedSolomonEncoder;
+
 use crate::error::{Error, Result};
 use crate::format::{u32_at, u64_at};
 
@@ -295,44 +297,156 @@ fn padded_shard<'a>(protected: &'a [u8], geom: &Geometry, shard: u64) -> Cow<'a,
     }
 }
 
+/// Applique `f` à `0..n` et renvoie les résultats dans l'ordre. Avec la
+/// fonctionnalité `parallel`, le travail est réparti sur le pool rayon ; le
+/// résultat est identique dans les deux cas.
+fn map_ordered<T, F>(n: u64, f: F) -> Vec<T>
+where
+    T: Send,
+    F: Fn(u64) -> T + Sync + Send,
+{
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        (0..n).into_par_iter().map(f).collect()
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        (0..n).map(f).collect()
+    }
+}
+
+/// Comme [`map_ordered`], avec un état par travailleur créé par `init` et
+/// prêté à chaque appel (ici : un encodeur dont l'espace de travail est réutilisé).
+fn map_ordered_init<S, T, I, F>(n: u64, init: I, f: F) -> Vec<T>
+where
+    T: Send,
+    I: Fn() -> S + Sync + Send,
+    F: Fn(&mut S, u64) -> T + Sync + Send,
+{
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        (0..n).into_par_iter().map_init(init, f).collect()
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        let mut state = init();
+        (0..n).map(|i| f(&mut state, i)).collect()
+    }
+}
+
+/// Ensemble de travail visé par un appel d'encodage (données et secours d'une
+/// tranche de colonnes) : tient dans le cache L2, ce qui double le débit mono-cœur.
+const ENCODE_WORKING_SET: usize = 1 << 20;
+
+/// Largeur d'une tranche de colonnes : un diviseur de `s`, multiple de 64 octets,
+/// tel que `(k + m) × largeur` tienne dans [`ENCODE_WORKING_SET`] ; `s` sinon.
+///
+/// Le code de Reed-Solomon est appliqué indépendamment à chaque bloc de 64 octets
+/// d'un shard : encoder une tranche de colonnes donne exactement la tranche
+/// correspondante des shards de secours (vérifié par `slicing_is_exact`).
+fn slice_width(s: usize, k: usize, m: usize) -> usize {
+    let mut w = s;
+    while w % 128 == 0 && (k + m) * w > ENCODE_WORKING_SET {
+        w /= 2;
+    }
+    w
+}
+
+/// Encode les `m` shards de secours du groupe `g`, restreints aux colonnes
+/// `[part × w, (part + 1) × w)`, dans `enc` (réinitialisé, espace réutilisé).
+/// Renvoie les `m` tranches concaténées (`m × w` octets). Les tâches sont
+/// indépendantes entre elles.
+fn encode_slice(
+    enc: &mut ReedSolomonEncoder,
+    protected: &[u8],
+    geom: &Geometry,
+    g: u64,
+    part: usize,
+    w: usize,
+    m: usize,
+) -> Result<Vec<u8>> {
+    let k = geom.data_shards_in_group(g);
+    let s = geom.shard_size as usize;
+    enc.reset(k as usize, m, w).map_err(rs_err)?;
+    let col = |r: Range<usize>| r.start + part * w..r.start + (part + 1) * w;
+    // Seul le dernier shard de la zone (dernière position de son groupe) peut
+    // être incomplet ; ailleurs on lit la zone protégée sans copie.
+    let last = geom.data_range(geom.shard_of_group(g, k - 1));
+    if last.len() == s {
+        for pos in 0..k {
+            enc.add_original_shard(&protected[col(geom.data_range(geom.shard_of_group(g, pos)))])
+                .map_err(rs_err)?;
+        }
+    } else {
+        for pos in 0..k {
+            let sh = padded_shard(protected, geom, geom.shard_of_group(g, pos));
+            enc.add_original_shard(&sh[part * w..(part + 1) * w])
+                .map_err(rs_err)?;
+        }
+    }
+    let res = enc.encode().map_err(rs_err)?;
+    let mut out = vec![0u8; m * w];
+    for (j, r) in res.recovery_iter().enumerate() {
+        out[j * w..(j + 1) * w].copy_from_slice(r);
+    }
+    Ok(out)
+}
+
 /// Construit la section de parité d'une zone protégée. Déterministe.
 pub fn build_section(protected: &[u8], opts: &ParityOptions) -> Result<Vec<u8>> {
     opts.validate()?;
     let geom = Geometry::new(protected.len() as u64, opts);
-    let n = geom.data_shards;
-    let p = geom.parity_shards();
+    let n = geom.data_shards as usize;
+    let p = geom.parity_shards() as usize;
     let s = geom.shard_size as usize;
     let m = geom.recovery_per_group as usize;
 
-    let mut data_crc = Vec::with_capacity(4 * n as usize);
-    for i in 0..n {
-        data_crc.extend_from_slice(&crc32c::crc32c(&protected[geom.data_range(i)]).to_le_bytes());
+    // Disposition : en-tête, CRC des données, CRC de la parité, shards de parité.
+    let tables_off = PARITY_HEADER_LEN;
+    let parity_crc_off = tables_off + 4 * n;
+    let shards_off = parity_crc_off + 4 * p;
+    let mut out = vec![0u8; geom.section_len() as usize];
+
+    let data_crc = map_ordered(n as u64, |i| crc32c::crc32c(&protected[geom.data_range(i)]));
+    for (i, c) in data_crc.iter().enumerate() {
+        out[tables_off + 4 * i..tables_off + 4 * i + 4].copy_from_slice(&c.to_le_bytes());
     }
 
-    let mut shards = vec![0u8; p as usize * s];
-    for g in 0..geom.groups {
-        let k = geom.data_shards_in_group(g);
-        let originals =
-            (0..k).map(|pos| padded_shard(protected, &geom, geom.shard_of_group(g, pos)));
-        let recovery = reed_solomon_simd::encode(k as usize, m, originals).map_err(rs_err)?;
-        for (j, r) in recovery.iter().enumerate() {
-            let slot = geom.parity_slot(g, j as u64) as usize;
-            shards[slot * s..(slot + 1) * s].copy_from_slice(r);
+    let w = slice_width(s, geom.group_max as usize, m);
+    let split = s / w;
+    let k0 = geom.data_shards_in_group(0) as usize;
+    let tasks = map_ordered_init(
+        geom.groups * split as u64,
+        || ReedSolomonEncoder::new(k0, m, w),
+        |enc, t| {
+            let (g, part) = (t / split as u64, (t % split as u64) as usize);
+            let enc = enc.as_mut().map_err(|e| rs_err(*e))?;
+            encode_slice(enc, protected, &geom, g, part, w, m)
+        },
+    );
+    for (t, recovery) in tasks.into_iter().enumerate() {
+        let (g, part) = (t / split, t % split);
+        let recovery = recovery?;
+        for j in 0..m {
+            let slot = geom.parity_slot(g as u64, j as u64) as usize;
+            let at = shards_off + slot * s + part * w;
+            out[at..at + w].copy_from_slice(&recovery[j * w..(j + 1) * w]);
         }
     }
-    let mut parity_crc = Vec::with_capacity(4 * p as usize);
-    for slot in 0..p as usize {
-        parity_crc
-            .extend_from_slice(&crc32c::crc32c(&shards[slot * s..(slot + 1) * s]).to_le_bytes());
+
+    let shards = &out[shards_off..];
+    let parity_crc = map_ordered(p as u64, |slot| {
+        let slot = slot as usize;
+        crc32c::crc32c(&shards[slot * s..(slot + 1) * s])
+    });
+    for (i, c) in parity_crc.iter().enumerate() {
+        out[parity_crc_off + 4 * i..parity_crc_off + 4 * i + 4].copy_from_slice(&c.to_le_bytes());
     }
 
-    let mut tables = data_crc;
-    tables.extend_from_slice(&parity_crc);
-    let mut out = Vec::with_capacity(geom.section_len() as usize);
-    out.extend_from_slice(&geom.encode_header(crc32c::crc32c(&tables)));
-    out.extend_from_slice(&tables);
-    out.extend_from_slice(&shards);
-    debug_assert_eq!(out.len() as u64, geom.section_len());
+    let header = geom.encode_header(crc32c::crc32c(&out[tables_off..shards_off]));
+    out[..PARITY_HEADER_LEN].copy_from_slice(&header);
     Ok(out)
 }
 
@@ -532,6 +646,50 @@ mod tests {
         }
         assert_eq!(g.data_range(10).len(), 3);
         assert_eq!(g.shards_covering(60..130), 0..3);
+    }
+
+    #[test]
+    fn slicing_is_exact() {
+        // Plusieurs géométries : dernier groupe incomplet, dernier shard rempli,
+        // petit groupe où aucune tranche n'est nécessaire.
+        for (len, opts) in [
+            (300_000usize, ParityOptions::default()),
+            (
+                1_234_567,
+                ParityOptions {
+                    percent: 7,
+                    shard_size: 1024,
+                    group_max: 300,
+                },
+            ),
+            (
+                70_000,
+                ParityOptions {
+                    percent: 50,
+                    shard_size: 512,
+                    group_max: 4,
+                },
+            ),
+        ] {
+            let data = protected(len);
+            let geom = Geometry::new(len as u64, &opts);
+            let (s, m) = (geom.shard_size as usize, geom.recovery_per_group as usize);
+            let w = slice_width(s, geom.group_max as usize, m);
+            let mut enc = ReedSolomonEncoder::new(geom.group_max as usize, m, s).unwrap();
+            for g in 0..geom.groups {
+                let whole = encode_slice(&mut enc, &data, &geom, g, 0, s, m).unwrap();
+                for part in 0..s / w {
+                    let sliced = encode_slice(&mut enc, &data, &geom, g, part, w, m).unwrap();
+                    for j in 0..m {
+                        let (a, b) = (j * s + part * w, j * w);
+                        assert_eq!(&sliced[b..b + w], &whole[a..a + w], "g{g} p{part} j{j}");
+                    }
+                }
+            }
+        }
+        assert_eq!(slice_width(4096, 1024, 103), 512);
+        assert_eq!(slice_width(4096, 4, 2), 4096);
+        assert_eq!(slice_width(96, 32768, 3277), 96);
     }
 
     #[test]

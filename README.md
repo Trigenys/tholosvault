@@ -54,6 +54,9 @@ cargo build --release -p vault-cli
 
 Options utiles : `--level` (niveau zstd, 15 par défaut), `--parity` (pourcentage de parité, 5 par défaut).
 
+La parité est encodée en parallèle (fonctionnalité `parallel` de `vault-core`, activée par défaut) ;
+`cargo build -p vault-core --no-default-features` donne un cœur mono-fil à la sortie identique.
+
 ## Format
 
 Le format est documenté et stable par version : [`docs/format/spec-v0.md`](docs/format/spec-v0.md)

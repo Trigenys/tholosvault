@@ -27,3 +27,38 @@
   par une PR qui cite les mesures ; `h5.build_s_per_gb` reste reporté pour suivre la tendance.
 - **Dérogation RAIDER** : D (non-régressif) — un seuil déclaré n'est pas appliqué par la CI ; borné par le
   chantier de suivi et visible dans chaque rapport.
+
+## Suivi (2026-11-16) — encodage parallèle par tranches de colonnes
+
+- **Option 4 écartée** : les encodeurs GF(2⁸) (ISA-L, `reed-solomon-erasure`) imposent k + m ≤ 256 shards
+  par groupe ; la géométrie v1 par défaut (groupes de 1 024 shards) l'exclut sans changement de format.
+  `reed-solomon-simd` est conservé.
+- **Mise en œuvre** (`vault-core`, fonctionnalité `parallel`, activée par défaut, `rayon`) : le code RS agit
+  indépendamment sur chaque bloc de 64 octets d'un shard, donc encoder une tranche de colonnes d'un groupe
+  donne exactement la tranche correspondante des shards de secours (test `slicing_is_exact`). Chaque groupe
+  est découpé en tranches de 512 octets (ensemble de travail (k + m) × largeur ≤ 1 MiB, en cache L2), les
+  tâches groupes × tranches sont réparties sur le pool, un encodeur par travailleur réutilise son espace de
+  travail, les CRC des shards sont calculés en parallèle et les résultats écrits en place. La sortie est
+  identique octet pour octet, avec ou sans la fonctionnalité (`--no-default-features`, testé en CI).
+- **Mesures** (hôte de développement, 32 MiB, 10 %, médiane de 8 constructions à froid) :
+
+  | Fils rayon | `h5.build_s_per_gb` | `h5.build_vs_blake3` |
+  |---|---|---|
+  | référence (main avant ce chantier) | 1,23 | 7,0 |
+  | 1 | 0,84 | 6,2 |
+  | 4 | 0,33–0,38 | 2,3–3,5 |
+  | 16 | 0,33–0,39 | 2,2–2,5 |
+
+  Le coût mur est divisé par 3,2–3,7 à 4 fils et plus ; le chemin mono-fil gagne ≈ 30 % (tranches en cache,
+  encodeur réutilisé).
+- **Seuil non réarmé** : à 4 fils le rapport oscille autour de 3 et dépend surtout du dénominateur — la
+  calibration BLAKE3 varie de 0,11 à 0,18 s/GB d'une exécution à l'autre sur le même hôte (buffer de 1 MiB
+  en cache, fréquence turbo), alors que la construction traite 32 MiB en mémoire. Les exécuteurs CI
+  (4 vCPU partagés) sont plus lents et plus bruyants. `h5.build_vs_blake3` reste donc non bloquante avec le
+  même seuil ; `h5.build_s_per_gb` suit la tendance.
+- **Réarmement** : (1) calibrer BLAKE3 sur le même volume que la construction (mono-fil, 32 MiB en mémoire)
+  pour que le rapport compare deux passes équivalentes — changement du banc à consigner ici avant d'être
+  appliqué, pas un relâchement du seuil ; (2) rejouer ≥ 5 exécutions `--only H5` à 4 fils ; réarmer
+  `blocking: true` si le rapport est ≤ 2,5 dans toutes. Piste restante côté cœur : écrire les shards de
+  secours directement dans la section (évite une copie de 3,4 MiB par 32 MiB) et paralléliser `reconstruct`.
+

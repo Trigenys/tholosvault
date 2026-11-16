@@ -15,6 +15,13 @@ memmap2.workspace = true
 crc32c.workspace = true
 thiserror.workspace = true
 reed-solomon-simd.workspace = true
+rayon = { workspace = true, optional = true }
+
+[features]
+# Encodage de la parité par groupe en parallèle (rayon). Désactiver pour un
+# cœur unique ou une empreinte minimale : `--no-default-features`.
+default = ["parallel"]
+parallel = ["dep:rayon"]
 
 [dev-dependencies]
 tempfile.workspace = true
