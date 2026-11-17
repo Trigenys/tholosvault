@@ -81,7 +81,8 @@ pub fn run(ctx: &mut Ctx) -> Result<Produced> {
             let protected_len = Archive::open(&dst)?.trailer().parity_off();
             if percent == 10 {
                 let protected = &original[..protected_len as usize];
-                let (ns, section) = time_ns(|| parity::build_section(protected, &opts.parity));
+                let (ns, section) =
+                    time_ns(|| parity::build_section(protected, &opts.parity, None));
                 section?;
                 build_ns_per_mib.push(ns * (1 << 20) / protected_len.max(1));
                 // Dénominateur du rapport : BLAKE3 mono-fil du même volume, mesuré dans

@@ -44,7 +44,7 @@ Paramètres d'écriture : `percent` (budget, 0 = désactivé), `shard_size` S (4
 - La géométrie est entièrement dérivée de `(P, percent, S, group_max)` : le lecteur la recalcule et refuse une
   section dont l'en-tête la contredit.
 
-Avec le budget par défaut, la section pèse environ `percent % + (G × S + tables)` de la zone protégée (≈ 5,6 %
+Avec le budget par défaut, la section pèse environ `percent % + (G × S + 176 + tables)` de la zone protégée (≈ 5,6 %
 pour 1 Mo).
 
 ## Section de parité
@@ -60,11 +60,17 @@ Entiers little-endian.
 | 12 | 4 | `group_max` |
 | 16 | 4 | m, parités par groupe |
 | 20 | 1 | `percent` |
-| 21 | 3 | réservé (0) |
+| 21 | 1 | disposition : 0 = tables juste après l'en-tête ; 1 = copie du trailer (128) intercalée |
+| 22 | 2 | réservé (0) |
 | 24 | 8 | N, shards de données |
 | 32 | 8 | P, longueur protégée |
 | 40 | 4 | CRC32C des deux tables de CRC |
 | 44 | 4 | CRC32C des octets 0..44 |
+
+### Copie du trailer (128, disposition 1)
+
+Copie octet pour octet du trailer (magique, champs, CRC32C), identique aux deux copies de queue. L'écrivain
+produit toujours la disposition 1 ; la disposition 0 (sections antérieures) reste lue.
 
 ### Tables de CRC
 
@@ -77,7 +83,14 @@ La parité `j` du groupe `g` est stockée au slot `j × G + g` (entrelacée comm
 
 ## Lecture, vérification, réparation
 
-- **Ouverture** : inchangée ; la section n'est pas lue tant qu'on ne vérifie ni ne répare.
+- **Ouverture** : inchangée tant qu'une copie de queue du trailer est valide ; la section n'est alors pas lue
+  avant vérification ou réparation.
+- **Balayage de secours** : si les deux copies de queue sont illisibles, le lecteur remonte depuis la fin du
+  fichier (hors trailers) à la recherche du magique `THOLOSPR` ; un candidat n'est retenu que si son en-tête a
+  un CRC valide, porte la disposition 1, et si la copie de trailer embarquée (CRC valide) désigne exactement
+  cette position (`P = position`) et cette fin de section (`P + parity_len = longueur − 2 × 128`). Un faux
+  magique dans les données est ainsi écarté sans collision CRC. L'archive s'ouvre et se lit normalement ; la
+  réparation restaure les deux copies de queue. Coût : proportionnel à la taille de la section.
 - **Bilan des dégâts** (`verify`, `scan_file`) : chaque shard de données et de parité est comparé à son CRC ;
   un morceau dont le hachage BLAKE3 est faux mais dont aucun shard n'est signalé voit tous ses shards marqués
   effacés (repli contre une collision CRC). Le bilan compte les effacements par groupe et déclare l'archive
@@ -95,9 +108,9 @@ La parité `j` du groupe `g` est stockée au slot `j × G + g` (entrelacée comm
 
 ## Limites connues
 
-- Les deux copies du trailer détruites rendent l'archive illisible et non réparable (la géométrie en dépend) ;
-  un balayage de secours de la fin du fichier est un travail ultérieur.
-- Une section de parité dont l'en-tête ou les tables de CRC sont abîmés est ignorée : les dégâts sont alors
-  détectés mais déclarés non réparables.
+- Sans parité (v0 ou budget nul), les deux copies du trailer détruites rendent l'archive illisible.
+- Une section de parité dont l'en-tête est abîmé perd aussi sa copie du trailer ; avec les tables de CRC
+  abîmées, les dégâts sont détectés mais déclarés non réparables. La réplication de l'en-tête et des tables
+  est un travail ultérieur.
 - La parité protège un fichier ; la réparation par téléchargement de morceaux depuis une version voisine
   (distribution) reste à venir.

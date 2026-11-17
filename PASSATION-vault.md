@@ -223,3 +223,18 @@
 - Mesures 5 × 4 fils : rapport 1,82–2,06 (± 6 %) ; 16 fils 2,03 ; 1 fil 3,76. Run `ci` complet : sortie 0, `h5.build_vs_blake3` = 2,13 **bloquant**.
 - `bench/config.json` : `blocking: true` (seuil ≤ 3 inchangé, champ `adr` conservé). ADR-0003 « Suivi (2026-11-17) », B-001, `bench/README.md`, `bench/results/ci.*` à jour.
 - Reste : PR `bench/calibration-h5` → CI → fusion ; puis chantiers `vault-mount` (H4), delta (H6), shards de secours écrits en place + `reconstruct` parallèle.
+
+## 2026-11-17 09:28 — Balayage de secours du trailer (section de parité, disposition 1)
+
+- La section de parité embarque une copie du trailer (128 o) entre son en-tête et les tables de CRC ;
+  octet 21 de l'en-tête = disposition (1 = copie présente, 0 = sections antérieures, toujours lues).
+- Lecteur : si les deux copies de queue sont illisibles, `locate_trailer` remonte la fin du fichier à la
+  recherche de `THOLOSPR`, valide en-tête + copie, et exige `P = position` et `P + parity_len = fin − 256`.
+  L'archive s'ouvre et se lit ; `repair` restaure les deux copies de queue.
+- Writer : le trailer est encodé avant la section (sa longueur ne dépend que de la géométrie) ;
+  `build_section` prend `Option<&[u8; 128]>` (le banc H5 passe `None`).
+- Tests : copies détruites → lisible et réparé ; + en-tête de section abîmé → `NoValidTrailer` sans écriture ;
+  sans parité → `NoValidTrailer` ; faux magique dans les données ignoré. Le test v0 de la réplique utilise
+  explicitement les options sans parité.
+- Reste : répliquer l'en-tête et les tables de CRC de la section (une section à en-tête abîmé perd sa parité
+  et sa copie de trailer).
