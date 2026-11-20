@@ -402,3 +402,10 @@
   résultat à relever dans la PR.
 - Hors périmètre, à ouvrir ensuite : lecture / montage d'une archive incomplète (H9b, H9d) ; verdict de thèse
   du banc qui marque « refuted » une thèse dont seule une métrique non bloquante est hors cible.
+
+## 2026-11-20 13:08 — Branche renommée, PR #14 remplace la #13
+
+- Branche `feat/vault-fetch-mvp` (l'ancienne `claude/…` supprimée du dépôt distant : son nom aurait été repris
+  dans le commit de fusion). PR https://github.com/Trigenys/tholosvault/pull/14 vers `main`, même corps ;
+  PR #13 fermée en la référençant.
+- Prochaine étape : relever la CI de la #14, fusionner ; puis H9b/H9d dans une PR séparée.
