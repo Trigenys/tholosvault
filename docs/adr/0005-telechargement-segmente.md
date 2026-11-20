@@ -33,7 +33,8 @@ Reuse-first (recherche GitHub du 2026-11-20, `gh search repos --language rust`) 
 | `aria2/aria2` (★43 571, GPL-2.0, C++, dernière release 1.37.0 du 2023-11-15) en sous-processus via RPC JSON | Tout le téléchargement générique est fait, multi-sources | Binaire externe à distribuer par OS, licence séparée, vérification par fichier entier (`--checksum`), pas de montage partiel, projet au ralenti | **Écarté** (Learn : politique de reprise et de politesse HTTP) |
 | `seanmonstar/reqwest` (+ `rustls`, `tokio`) | Client HTTP async déjà dans la stack (API Axum, desktop Tauri), `Range`, flux, timeouts | Aucune logique de segments ni d'état : à construire | **Adopt** comme transport HTTP |
 
-Veille en ligne (2026-11-20) : aucun outil connu ne combine archive compressée dédupliquée, Merkle par
+Veille en ligne (2026-11-20 ; mécanique, chronologie et goulots détaillés dans
+`docs/recherche/telechargement-histoire-goulots.md`) : aucun outil connu ne combine archive compressée dédupliquée, Merkle par
 morceau, parité, téléchargement segmenté et montage partiel ; chaque brique existe séparément.
 
 | Projet | Ce qu'il montre | Leçon retenue |
