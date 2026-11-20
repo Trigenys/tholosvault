@@ -8,11 +8,12 @@ use anyhow::{Context as _, Result};
 use vault_core::{pack_dir, PackOptions, PackSummary, ParityOptions};
 
 use crate::corpus::{self, Files};
-use crate::report::{CorpusOut, Measured, Profile, Sample};
+use crate::report::{CorpusOut, Environment, Measured, Profile, Sample};
 
 pub mod h1;
 pub mod h2;
 pub mod h3;
+pub mod h4;
 pub mod h5;
 
 pub struct Ctx<'a> {
@@ -20,6 +21,8 @@ pub struct Ctx<'a> {
     pub corpus_root: &'a Path,
     pub work: &'a Path,
     pub calib_ns_per_mib: u64,
+    /// Capacités de l'hôte : une thèse ne mesure que ce que l'hôte permet.
+    pub env: &'a Environment,
     pub samples: Vec<Sample>,
     pub corpus_out: Vec<CorpusOut>,
     archives: BTreeMap<String, (PathBuf, PackSummary)>,
@@ -31,12 +34,14 @@ impl<'a> Ctx<'a> {
         corpus_root: &'a Path,
         work: &'a Path,
         calib_ns_per_mib: u64,
+        env: &'a Environment,
     ) -> Self {
         Self {
             profile,
             corpus_root,
             work,
             calib_ns_per_mib,
+            env,
             samples: Vec::new(),
             corpus_out: Vec::new(),
             archives: BTreeMap::new(),

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/vault-core", "crates/vault-cli", "bench"]
+members = ["crates/vault-core", "crates/vault-cli", "crates/vault-mount", "bench"]
 
 [workspace.package]
 edition = "2021"
@@ -10,6 +10,8 @@ rust-version = "1.80"
 
 [workspace.dependencies]
 vault-core = { path = "crates/vault-core", version = "0.1.0" }
+vault-mount = { path = "crates/vault-mount", version = "0.1.0", default-features = false }
+ctrlc = "3.5"
 fastcdc = "5.0"
 blake3 = "1.8"
 zstd = "0.14"

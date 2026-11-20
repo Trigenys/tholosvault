@@ -72,6 +72,23 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
 - **Leçon** : un banc valide son corpus contre ses paramètres déclarés avant de mesurer ; deux corpus
   censés différer et de même digest doivent faire échouer l'exécution, pas produire une ligne de plus.
 
+### I-003 — Une mesure que l'hôte ne peut pas faire ne doit pas disparaître en silence (règle, 2026-11-19)
+
+- **Contexte** : H4 mesure un montage réel ; les postes Windows et la matrice CI n'ont pas tous un
+  pilote. Première tentation : ne produire que les métriques possibles et laisser le contrat
+  « métrique déclarée non produite = erreur » être contourné par profil.
+- **Risque** : un hôte sans pilote aurait affiché H4 `supported` sur la seule mesure du cœur, et la CI
+  aurait pu perdre le pilote (image, paquet `fuse3`) sans que rien ne rougisse.
+- **Règle** : une métrique déclare la capacité qu'elle exige (`requires`). Capacité absente → métrique
+  sautée, raison rapportée, verdict `incomplete`. Capacité présente → la métrique est due comme les
+  autres. Métrique produite sans la capacité → erreur. La CI passe `--require-env mount` : l'absence du
+  pilote est une erreur de configuration (code 2), pas un rapport incomplet. Pilote présent mais non fonctionnel (`fusermount3` absent) : `MountError::DriverUnavailable`, même code.
+- **Prévention vérifiable** : tests `missing_capability_skips_metrics_and_marks_incomplete`,
+  `required_metric_produced_without_capability_is_an_error`, `capability_present_requires_the_metrics`,
+  `unknown_capability_is_rejected` dans `bench/src/report.rs` ; étape CI `fuse3` + `--require-env`.
+- **Leçon générale** : un banc qui conclut doit distinguer « mesuré et conforme » de « non mesurable
+  ici », et l'environnement de référence doit exiger la mesure plutôt que la tolérer.
+
 ## Réfutations consignées par le banc
 
 ### B-001 — H5 : coût de construction de la parité (2026-11-16)

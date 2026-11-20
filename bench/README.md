@@ -39,11 +39,19 @@ exécutions au même commit produisent le même digest.
 | H1 découpage vs zstd solide | mesurée | `h1.loss_pct.{code,binary}.block1m` ≤ 20 / 10 % ; `h1.loss_pct.{code,binary}.cdc` ≤ 25 % |
 | H2 déduplication CDC | mesurée | `h2.dedup_recall.exact` ≥ 0,99 ; `h2.edit_cost_kib` ≤ 512 KiB ; `h2.penalty_pct.d20`, `.d40` ≤ 0 % |
 | H3 montage et accès aléatoire | mesurée | `h3.metadata_plaintext` = 1 ; `h3.open_scaling` ≤ 20× (10× plus de fichiers) ; `h3.find_p99_over_blake3_mib` ≤ 0,05 ; `h3.chunks_per_read4k.max` ≤ 2 |
-| H4 FUSE/WinFsp | non mesurée | prérequis : `vault-mount` |
+| H4 montage lit à la vitesse du décodeur | mesurée | `h4.core_read_ratio` ≥ 0,9 (cœur `vault-mount` en requêtes de 128 KiB ÷ lecture directe 1 MiB) ; avec pilote (`requires: mount`) : `h4.mount_content_ok` = 1, `h4.mount_read_ratio` ≥ 0,7, `h4.mount_open_p99_over_blake3_mib` ≤ 1 |
 | H5 parité Reed-Solomon | mesurée | `h5.repair_rate.*` = 1 (4 scénarios) ; `h5.build_vs_blake3` ≤ 3× (1,8–2,1× à ≥ 4 fils, 3,8× mono-fil ; BLAKE3 du même volume, voir [ADR-0003](../docs/adr/0003-cout-construction-parite.md)) |
 | H6 delta entre archives | non mesurée | prérequis : commande delta |
 | H7 dictionnaire zstd | non mesurée | prérequis : dictionnaire dans le format |
 | H8 décodage vs disque | non mesurée | prérequis : hôte et disque de référence |
+
+Une métrique peut exiger une capacité de l'hôte (`requires` : `mount`, `fuse`, `winfsp`). Absente,
+la métrique est **sautée** (valeur `—`, raison dans la colonne OK) et la thèse a le verdict
+`incomplete`, jamais `supported` : le banc ne conclut pas sur un montage qu'il n'a pas fait. Produire
+une telle métrique sans la capacité est une erreur (code 2). En CI, `--require-env mount` transforme
+l'absence du pilote en erreur de configuration (code 2) au lieu d'un rapport incomplet : la mesure
+exigée ne peut pas être sautée en silence. Sous Linux il faut `fuse3` (`fusermount3`) ; le champ
+`host.capabilities` du JSON dit ce qui a été détecté.
 
 Les métriques sans seuil (ratios, ns, s/GB, surcoût d'index, rappel édité, pénalité à 0 et 10 %) sont
 **rapportées** pour suivre la tendance. Les métriques de temps sont rapportées à BLAKE3, ce qui rend les

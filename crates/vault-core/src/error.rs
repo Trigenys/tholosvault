@@ -40,6 +40,9 @@ pub enum Error {
     #[error("chemin absent de l'archive : {0}")]
     NotFound(String),
 
+    #[error("chemin d'archive refusé : {0}")]
+    InvalidPath(String),
+
     #[error("morceau {index} corrompu : hachage attendu {expected}, obtenu {actual}")]
     ChunkMismatch {
         index: u32,

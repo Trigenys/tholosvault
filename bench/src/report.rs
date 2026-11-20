@@ -1,7 +1,7 @@
 //! Configuration déclarative (`bench/config.json`), métriques, verdicts et
 //! écriture des résultats (JSON, CSV, échantillons bruts, résumé markdown).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
@@ -59,6 +59,34 @@ pub struct MetricSpec {
     /// ADR justifiant un seuil rendu non bloquant après réfutation.
     #[serde(default)]
     pub adr: Option<String>,
+    /// Capacité de l'hôte nécessaire pour produire la métrique (voir
+    /// [`CAPABILITIES`]). Absente de l'hôte : la métrique est sautée et la
+    /// thèse devient `incomplete`, jamais `supported`.
+    #[serde(default)]
+    pub requires: Option<String>,
+}
+
+/// Capacités d'hôte qu'une métrique peut exiger.
+pub const CAPABILITIES: [&str; 3] = ["mount", "fuse", "winfsp"];
+
+/// Capacités détectées sur l'hôte, avec la raison de chaque absence.
+#[derive(Debug, Default, Clone)]
+pub struct Environment {
+    pub available: BTreeSet<String>,
+    pub missing: BTreeMap<String, String>,
+}
+
+impl Environment {
+    pub fn has(&self, cap: &str) -> bool {
+        self.available.contains(cap)
+    }
+
+    pub fn missing_reason(&self, cap: &str) -> String {
+        self.missing
+            .get(cap)
+            .cloned()
+            .unwrap_or_else(|| format!("capacité `{cap}` absente de l'hôte"))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -147,6 +175,9 @@ pub struct MetricOut {
     pub adr: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    /// Raison pour laquelle la métrique n'a pas été produite sur cet hôte.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skipped: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -184,6 +215,8 @@ pub struct Host {
     pub arch: String,
     pub cpus: usize,
     pub calib_blake3_ns_per_mib: u64,
+    /// Capacités détectées (`mount`, `fuse`, `winfsp`).
+    pub capabilities: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -216,6 +249,11 @@ pub fn load_config(path: &Path) -> Result<Config> {
             if !m.blocking && m.threshold.is_some() && m.adr.is_none() {
                 bail!("{tid}/{mid} : seuil non bloquant sans champ `adr` (ADR-0003)");
             }
+            if let Some(req) = &m.requires {
+                if !CAPABILITIES.contains(&req.as_str()) {
+                    bail!("{tid}/{mid} : capacité requise inconnue `{req}`");
+                }
+            }
         }
     }
     Ok(cfg)
@@ -223,12 +261,15 @@ pub fn load_config(path: &Path) -> Result<Config> {
 
 /// Confronte les valeurs produites au contrat déclaré. Toute métrique déclarée
 /// pour ce profil et non produite, ou produite et non déclarée, est une erreur
-/// de configuration (code 2), pas un échec de thèse.
+/// de configuration (code 2), pas un échec de thèse. Seule exception : une
+/// métrique dont la capacité `requires` manque à l'hôte est sautée et
+/// rapportée comme telle ; produite malgré l'absence, c'est une erreur.
 pub fn evaluate(
     cfg: &Config,
     profile: &str,
     produced: &BTreeMap<String, Vec<Measured>>,
     only: &[String],
+    env: &Environment,
 ) -> Result<Vec<ThesisOut>> {
     let mut out = Vec::new();
     for (id, spec) in &cfg.theses {
@@ -241,11 +282,34 @@ pub fn evaluate(
         let mut metrics = Vec::new();
         for (mid, ms) in &spec.metrics {
             let expected_here = ms.profiles.is_empty() || ms.profiles.iter().any(|p| p == profile);
-            let m = match (by_id.remove(mid), expected_here) {
-                (Some(m), true) => m,
-                (None, false) => continue,
-                (Some(_), false) => bail!("métrique {mid} produite hors de ses profils déclarés"),
-                (None, true) => bail!("métrique {mid} déclarée pour {id} mais non produite"),
+            let missing_cap = ms.requires.as_deref().filter(|c| !env.has(c));
+            let m = match (by_id.remove(mid), expected_here, missing_cap) {
+                (Some(_), _, Some(cap)) => {
+                    bail!("métrique {mid} produite alors que la capacité `{cap}` est absente")
+                }
+                (None, true, Some(cap)) => {
+                    metrics.push(MetricOut {
+                        id: mid.clone(),
+                        value: f64::NAN,
+                        unit: ms.unit.clone(),
+                        p50: None,
+                        p99: None,
+                        samples: 0,
+                        threshold: ms.threshold.clone(),
+                        blocking: ms.blocking,
+                        pass: None,
+                        adr: ms.adr.clone(),
+                        source: ms.source.clone(),
+                        skipped: Some(env.missing_reason(cap)),
+                    });
+                    continue;
+                }
+                (Some(m), true, None) => m,
+                (None, false, _) => continue,
+                (Some(_), false, None) => {
+                    bail!("métrique {mid} produite hors de ses profils déclarés")
+                }
+                (None, true, None) => bail!("métrique {mid} déclarée pour {id} mais non produite"),
             };
             let pass = match &ms.threshold {
                 Some(t) => Some(t.check(m.value)?),
@@ -263,6 +327,7 @@ pub fn evaluate(
                 pass,
                 adr: ms.adr.clone(),
                 source: ms.source.clone(),
+                skipped: None,
             });
         }
         if let Some(extra) = by_id.keys().next() {
@@ -271,6 +336,7 @@ pub fn evaluate(
         let verdict = match spec.status {
             Status::NotMeasured => "n/a",
             _ if metrics.iter().any(|m| m.pass == Some(false)) => "refuted",
+            _ if metrics.iter().any(|m| m.skipped.is_some()) => "incomplete",
             _ if metrics.iter().any(|m| m.pass == Some(true)) => "supported",
             _ => "inconclusive",
         };
@@ -328,7 +394,11 @@ pub fn write_outputs(dir: &Path, report: &Report, samples: &[Sample]) -> Result<
                 report.profile,
                 t.id,
                 m.id,
-                m.value,
+                if m.skipped.is_some() {
+                    String::new()
+                } else {
+                    m.value.to_string()
+                },
                 m.unit,
                 m.p50.map(|v| v.to_string()).unwrap_or_default(),
                 m.p99.map(|v| v.to_string()).unwrap_or_default(),
@@ -374,19 +444,24 @@ pub fn summary_markdown(report: &Report) -> String {
                 .as_ref()
                 .map(|x| format!("{} {}", x.op, x.value))
                 .unwrap_or_else(|| "—".into());
-            let ok = match m.pass {
-                Some(true) => "✓",
-                Some(false) => "✗",
-                None => "·",
+            let ok = match (&m.skipped, m.pass) {
+                (Some(why), _) => format!("sauté : {why}"),
+                (None, Some(true)) => "✓".into(),
+                (None, Some(false)) => "✗".into(),
+                (None, None) => "·".into(),
+            };
+            let value = if m.skipped.is_some() {
+                "—".to_string()
+            } else {
+                format!("{:.4} {}", m.value, m.unit)
             };
             md.push_str(&format!(
-                "| {} | {} | {} | `{}` | {:.4} {} | {} | {} | {} |\n",
+                "| {} | {} | {} | `{}` | {} | {} | {} | {} |\n",
                 t.id,
                 t.status.as_str(),
                 t.verdict,
                 m.id,
-                m.value,
-                m.unit,
+                value,
                 thr,
                 m.blocking,
                 ok
@@ -440,13 +515,97 @@ mod tests {
     #[test]
     fn contract_rejects_unknown_or_missing_metrics() {
         let cfg = shipped();
+        let env = Environment::default();
         let mut produced = BTreeMap::new();
-        produced.insert("H4".to_string(), vec![Measured::scalar("h4.inconnue", 1.0)]);
-        assert!(evaluate(&cfg, "ci", &produced, &[]).is_err());
-        assert!(evaluate(&cfg, "ci", &BTreeMap::new(), &[]).is_err());
-        let only = ["H4".to_string()];
-        let ok = evaluate(&cfg, "ci", &BTreeMap::new(), &only).unwrap();
+        produced.insert("H6".to_string(), vec![Measured::scalar("h6.inconnue", 1.0)]);
+        assert!(evaluate(&cfg, "ci", &produced, &[], &env).is_err());
+        assert!(evaluate(&cfg, "ci", &BTreeMap::new(), &[], &env).is_err());
+        let only = ["H6".to_string()];
+        let ok = evaluate(&cfg, "ci", &BTreeMap::new(), &only, &env).unwrap();
         assert_eq!(ok.len(), 1);
         assert_eq!(ok[0].verdict, "n/a");
+    }
+
+    fn with_mount() -> Environment {
+        let mut env = Environment::default();
+        env.available.insert("mount".into());
+        env.available.insert("fuse".into());
+        env
+    }
+
+    fn h4_core_only() -> BTreeMap<String, Vec<Measured>> {
+        let mut p = BTreeMap::new();
+        p.insert(
+            "H4".to_string(),
+            vec![Measured::scalar("h4.core_read_ratio", 0.95)],
+        );
+        p
+    }
+
+    #[test]
+    fn missing_capability_skips_metrics_and_marks_incomplete() {
+        let cfg = shipped();
+        let only = ["H4".to_string()];
+        let out = evaluate(&cfg, "ci", &h4_core_only(), &only, &Environment::default()).unwrap();
+        assert_eq!(out[0].verdict, "incomplete");
+        let skipped: Vec<_> = out[0]
+            .metrics
+            .iter()
+            .filter(|m| m.skipped.is_some())
+            .collect();
+        assert!(skipped.len() >= 2, "{}", skipped.len());
+        assert!(skipped.iter().all(|m| m.pass.is_none()));
+        assert!(blocking_failures(&out).is_empty());
+        let md = summary_markdown(&Report {
+            schema: SCHEMA.into(),
+            profile: "ci".into(),
+            tool: Tool {
+                vault_core: "0".into(),
+                zstd: 0,
+                git_rev: None,
+            },
+            host: Host {
+                os: "test".into(),
+                arch: "x".into(),
+                cpus: 1,
+                calib_blake3_ns_per_mib: 1,
+                capabilities: vec![],
+            },
+            corpus: vec![],
+            theses: out,
+            pass: true,
+        });
+        assert!(md.contains("sauté : "), "{md}");
+    }
+
+    #[test]
+    fn required_metric_produced_without_capability_is_an_error() {
+        let cfg = shipped();
+        let mut produced = h4_core_only();
+        produced
+            .get_mut("H4")
+            .unwrap()
+            .push(Measured::scalar("h4.mount_content_ok", 1.0));
+        let only = ["H4".to_string()];
+        assert!(evaluate(&cfg, "ci", &produced, &only, &Environment::default()).is_err());
+    }
+
+    #[test]
+    fn capability_present_requires_the_metrics() {
+        let cfg = shipped();
+        let only = ["H4".to_string()];
+        assert!(evaluate(&cfg, "ci", &h4_core_only(), &only, &with_mount()).is_err());
+    }
+
+    #[test]
+    fn unknown_capability_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("c.json");
+        let text = fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/config.json")).unwrap();
+        let bad = text.replacen("\"requires\": \"mount\"", "\"requires\": \"nfs\"", 1);
+        assert_ne!(bad, text);
+        fs::write(&p, bad).unwrap();
+        let err = load_config(&p).unwrap_err().to_string();
+        assert!(err.contains("capacité requise inconnue"), "{err}");
     }
 }

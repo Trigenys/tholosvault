@@ -18,7 +18,7 @@ use std::time::Instant;
 use anyhow::{bail, Context as _, Result};
 use clap::Parser;
 
-use report::{Host, Report, Tool};
+use report::{Environment, Host, Report, Tool};
 use theses::Ctx;
 
 #[derive(Parser)]
@@ -42,6 +42,32 @@ struct Args {
     /// Fichier markdown où ajouter le résumé (ex. `$GITHUB_STEP_SUMMARY`).
     #[arg(long)]
     summary_md: Option<PathBuf>,
+    /// Capacités d'hôte exigées (ex. `--require-env mount`) : absentes, le banc
+    /// s'arrête en erreur (code 2) au lieu de sauter leurs métriques.
+    #[arg(long, value_delimiter = ',')]
+    require_env: Vec<String>,
+}
+
+/// Détecte les capacités de l'hôte sans rien monter.
+fn detect_environment() -> Environment {
+    let mut env = Environment::default();
+    match vault_mount::probe() {
+        Ok(backend) => {
+            env.available.insert("mount".into());
+            env.available.insert(backend.to_string().to_lowercase());
+        }
+        Err(e) => {
+            env.missing.insert("mount".into(), e.to_string());
+            env.missing.insert("fuse".into(), e.to_string());
+        }
+    }
+    for cap in report::CAPABILITIES {
+        if !env.has(cap) && !env.missing.contains_key(cap) {
+            env.missing
+                .insert(cap.into(), format!("adaptateur `{cap}` non compilé"));
+        }
+    }
+    env
 }
 
 fn git_rev() -> Option<String> {
@@ -67,17 +93,36 @@ fn run(args: &Args) -> Result<bool> {
         .context("répertoire de travail")?;
     fs::create_dir_all(&args.corpus_root)?;
 
+    let env = detect_environment();
+    for cap in &args.require_env {
+        if !env.has(cap) {
+            bail!(
+                "capacité `{cap}` exigée par --require-env mais absente : {}",
+                env.missing_reason(cap)
+            );
+        }
+    }
     let calib = measure::calib_blake3_ns_per_mib();
-    eprintln!("profil {} — BLAKE3 {} ns/MiB", args.profile, calib);
-    let mut ctx = Ctx::new(profile, &args.corpus_root, work.path(), calib);
+    eprintln!(
+        "profil {} — BLAKE3 {} ns/MiB — capacités : {}",
+        args.profile,
+        calib,
+        if env.available.is_empty() {
+            "aucune".to_string()
+        } else {
+            env.available.iter().cloned().collect::<Vec<_>>().join(", ")
+        }
+    );
+    let mut ctx = Ctx::new(profile, &args.corpus_root, work.path(), calib, &env);
 
     let wanted = |id: &str| args.only.is_empty() || args.only.iter().any(|o| o == id);
     let mut produced: BTreeMap<String, Vec<report::Measured>> = BTreeMap::new();
     type Runner = fn(&mut Ctx) -> Result<Vec<report::Measured>>;
-    let runners: [(&str, Runner); 4] = [
+    let runners: [(&str, Runner); 5] = [
         ("H1", theses::h1::run),
         ("H2", theses::h2::run),
         ("H3", theses::h3::run),
+        ("H4", theses::h4::run),
         ("H5", theses::h5::run),
     ];
     for (id, runner) in runners {
@@ -90,7 +135,7 @@ fn run(args: &Args) -> Result<bool> {
         produced.insert(id.to_string(), m);
     }
     // Exécution partielle (`--only`) : le contrat ne porte que sur les thèses demandées.
-    let theses_out = report::evaluate(&cfg, &args.profile, &produced, &args.only)?;
+    let theses_out = report::evaluate(&cfg, &args.profile, &produced, &args.only, &env)?;
     let failures = report::blocking_failures(&theses_out);
     let rep = Report {
         schema: report::SCHEMA.to_string(),
@@ -107,6 +152,7 @@ fn run(args: &Args) -> Result<bool> {
                 .map(|n| n.get())
                 .unwrap_or(1),
             calib_blake3_ns_per_mib: calib,
+            capabilities: env.available.iter().cloned().collect(),
         },
         corpus: std::mem::take(&mut ctx.corpus_out),
         theses: theses_out,

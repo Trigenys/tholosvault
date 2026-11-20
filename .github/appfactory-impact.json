@@ -36,7 +36,8 @@
         "rust"
       ],
       "dependsOn": [
-        "core"
+        "core",
+        "mount"
       ]
     },
     "mount": {
@@ -44,7 +45,8 @@
         "crates/vault-mount/**"
       ],
       "gates": [
-        "rust"
+        "rust",
+        "bench"
       ],
       "dependsOn": [
         "core"
@@ -79,7 +81,8 @@
         "bench"
       ],
       "dependsOn": [
-        "core"
+        "core",
+        "mount"
       ]
     }
   }
