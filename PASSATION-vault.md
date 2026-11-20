@@ -391,3 +391,10 @@
   verts, banc H4 exécuté (labo bruité : `core_read_ratio` 0,74, `open_p99` 4,3 — CI ubuntu fait foi).
 - Suite : lire les chiffres CI de la PR, les reporter dans l'ADR, puis décision (scinder la métrique ou garder H4
   réfutée) à prendre avec la session mère.
+
+## 2026-11-20 12:18 — vault-mount (H4) : PR #12 ouverte, CI verte, chiffres reportés dans l'ADR
+- PR https://github.com/Trigenys/tholosvault/pull/12 (`feat/fuse-vol-unique`, main fusionné). CI ubuntu/windows/bench vertes.
+- CI ubuntu (run 44726058404) : `mount_read_ratio` 0,21 (avant 0,18), `_code` 0,19, `_binary` 0,28, `_1thread` 0,23,
+  `decode_ratio` 1,00, `core_read_ratio` 0,96, `open_p99` 0,62. Tableau avant/après ajouté à l'ADR-0004.
+- Verrous : seuil ≥ 0,7 inchangé et non bloquant ; aucune décision prise sur la scission de la métrique.
+- Prochaine étape : réponse de la session mère (scinder la métrique ou garder H4 réfutée), puis revue/merge de la PR.

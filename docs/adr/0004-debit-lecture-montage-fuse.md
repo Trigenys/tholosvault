@@ -78,8 +78,24 @@ contenu en 15 µs par morceau) :
 
 Le banc CI mélange les deux (corpus `code` : 1107 fichiers de 1 à 64 KiB ; corpus `binary` : 4 KiB à
 2 MiB) ; le corpus `code` domine l'agrégat. Les nouvelles métriques informatives `h4.mount_read_ratio_code`
-et `h4.mount_read_ratio_binary` séparent les deux régimes (laboratoire : 0,04 et 0,27 ; CI : voir le
-rapport de la PR du chantier). Le plancher est la **latence d'un aller-retour FUSE par requête**, une
+et `h4.mount_read_ratio_binary` séparent les deux régimes. Mesures CI `ubuntu-latest` (4 vCPU, exécution
+44726058404, PR #12), après le chantier :
+
+| Métrique | Avant (PR #9) | Après (PR #12) | Seuil |
+|---|---|---|---|
+| `h4.core_read_ratio` | 0,99 | 0,96 | ≥ 0,9 ✓ |
+| `h4.core_concurrent_decode_ratio` (nouvelle) | — | 1,00 | ≤ 1,05 ✓ (bloquante) |
+| `h4.mount_decode_ratio` (nouvelle) | — | 1,00 | — |
+| `h4.mount_open_p99_over_blake3_mib` | 0,69 | 0,62 | ≤ 1 ✓ |
+| `h4.mount_read_ratio` | 0,18 | **0,21** | ≥ 0,7 ✗ (non bloquante) |
+| `h4.mount_read_ratio_1thread` (nouvelle) | — | 0,23 | — |
+| `h4.mount_read_ratio_code` (nouvelle) | — | 0,19 | — |
+| `h4.mount_read_ratio_binary` (nouvelle) | — | 0,28 | — |
+| `h4.mount_req_kib` (nouvelle) | — | 25,8 KiB | — |
+
+Un seul fil de service fait aussi bien que quatre (0,23 contre 0,21) : les requêtes sont bien émises en
+série. Le corpus `binary` lui-même (4 KiB à 2 MiB) reste à 0,28 : sa moitié de petits fichiers pèse autant
+que ses gros. Le plancher est la **latence d'un aller-retour FUSE par requête**, une
 propriété du trajet noyau ↔ espace utilisateur, pas du format ni du décodeur.
 
 **Conséquence sur la décision.** Le seuil ≥ 0,7 sur l'agrégat n'est pas atteignable sans changer ce qui
