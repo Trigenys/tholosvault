@@ -284,3 +284,56 @@
 - Étape en cours : branche `feat/vault-mount` par plumbing (index temporaire), push, PR avec le corps
   `scratchpad/pr_body.md` (RAIDER review), surveillance CI, fusion. Si H4 est réfutée en CI : ADR, jamais
   de seuil assoupli en silence.
+
+## 2026-11-20 09:12 — vault-mount (H4) : vol unique du cache, banc H4 alterné, réarmement en cours
+
+- Worktree `happy-almeida-9933ff`, branche `claude/happy-almeida-9933ff` depuis `main` (`30d7a38`) ; rien
+  n'est encore committé. Objectif : `h4.mount_read_ratio` ≥ 0,7 en CI (0,18 mesuré, ADR-0004), réarmer
+  `blocking: true` sans toucher au seuil.
+- Fait : `ChunkCache::get_or_decode` (vol unique par morceau, `CacheStats`, 7 tests dont 8 lecteurs
+  concurrents → 1 décodage) ; `read_range_into_cached` l'utilise ; `vault-mount` : `CACHE_CHUNKS` 16 → 64,
+  `MountOptions.cache_chunks`, `ReadStats` via `MountHandle::fs()`, tampon de réponse par fil dans
+  `fuse.rs::read` ; `tholos mount --cache-chunks` ; banc H4 : référence mesurée en alternance, cœur
+  sous concurrence (`h4.core_concurrent_*`, `h4.threads`), montage à 1 fil (`h4.mount_read_ratio_1thread`),
+  `h4.mount_req_kib`, `h4.mount_decode_ratio` ; config et test `report.rs` à jour ; fmt/clippy/tests
+  Windows verts.
+- Labo Linux : `scratchpad/lab.sh` (Docker `rust:1-bookworm`, `/dev/fuse`, volumes `tholos-cargo-*`).
+  Docker Desktop (exe dans `%LOCALAPPDATA%\Programs\DockerDesktop`) est mort deux fois pendant la
+  compilation ; relancé avec `--memory=8g --cpus=6`, résultat dans `scratchpad/lab3.log`.
+- Reste : lire lab3, pousser la branche + PR (RAIDER review), lire la mesure CI ; si ≥ 0,7 : `blocking: true`,
+  ADR-0004 → clos avec avant/après, B-002 suivi, `bench/README.md`, passation, fusion, rapport au parent.
+
+## 2026-11-20 10:23 — vault-mount (H4) : diagnostic du trajet FUSE, no_open, direct_io
+
+- **Diagnostic (labo Docker `tholos-lab`, WSL2 6.18, 6 cœurs, sonde temporaire
+  `crates/vault-mount/examples/h4probe.rs`, à supprimer avant commit)** : la perte de
+  `h4.mount_read_ratio` ne vient pas du décodage (vol unique OK, `decode_ratio` = 1) mais du
+  trajet noyau : gros fichiers (16 × 2 MiB) ratio ≈ 0,5 (le noyau découpe en requêtes de 128 KiB,
+  séquentielles, ~110 µs chacune, parallélisme sans effet) ; petits fichiers (2167 × 1–64 KiB)
+  ratio ≈ 0,05 (≈ 300 µs d'allers-retours par fichier : lookup + open + read + release, contre
+  ≈ 15 µs de décodage). Le corpus `code` du banc domine l'agrégat → 0,09–0,18.
+- **Fait** : `core_concurrent_ns` du banc réécrit en pool de fils persistant (le motif
+  « fils relancés par fenêtre » était un artefact du banc, 0,19) ; `fuse.rs` : `open` répond
+  `ENOSYS` quand le noyau annonce `FUSE_NO_OPEN_SUPPORT` (plus d'open/release par fichier),
+  capacités `FUSE_PARALLEL_DIROPS` + `FUSE_ASYNC_DIO` ; option `MountOptions.direct_io`
+  (`FOPEN_DIRECT_IO`, requêtes de 1 MiB) à mesurer (pas encore exposée dans la CLI).
+- **En cours** : sonde v3 (default / 1thread / direct_io) dans le labo
+  (`bash scratchpad/lab.sh "cargo run -q --release -p vault-mount --example h4probe"`).
+- **Décision à prendre (parent/utilisateur)** : la métrique agrégée ne peut pas atteindre 0,7 sur le
+  corpus `code` (plancher = latence d'un aller-retour FUSE, pas tholosvault). Options : scinder la
+  métrique (débit en flux sur `binary`, latence par fichier sur `code` avec seuil propre) ou garder
+  H4 réfutée. Ne pas relâcher le seuil.
+- Non commité : `.claude/sessions.json` (local), sonde. Branche de travail : `claude/happy-almeida-9933ff`.
+
+## 2026-11-20 12:10 — vault-mount (H4) : chantier « lecture séquentielle à travers FUSE », PR ouverte
+- Fait : vol unique `ChunkCache::get_or_decode` (+ compteurs, test concurrent), tampon de réponse par fil,
+  cache 64 morceaux, `FUSE_NO_OPEN_SUPPORT` (open → ENOSYS, 1,5 × sur petits fichiers), `FUSE_PARALLEL_DIROPS`,
+  `core_concurrent_ns` en pool persistant, métriques `h4.mount_decode_ratio`, `h4.mount_req_kib`,
+  `h4.mount_read_ratio_{1thread,code,binary}`, `h4.core_concurrent_{read,decode}_ratio` (décodage ≤ 1,05 bloquant).
+- Mesuré et rejeté : `FOPEN_DIRECT_IO`/`FUSE_ASYNC_DIO` (code retiré) ; la sonde `examples/h4probe.rs` est supprimée.
+- Verdict : `h4.mount_read_ratio` ne peut pas atteindre 0,7 (plancher de latence FUSE par requête ; corpus `code`
+  dominant). Seuil inchangé, toujours `blocking: false`. Détail et deux issues possibles : ADR-0004, section finale.
+- Preuves : Windows fmt/clippy/tests banc verts ; labo Linux (WSL2) tests vault-core/vault-mount + test FUSE ignoré
+  verts, banc H4 exécuté (labo bruité : `core_read_ratio` 0,74, `open_p99` 4,3 — CI ubuntu fait foi).
+- Suite : lire les chiffres CI de la PR, les reporter dans l'ADR, puis décision (scinder la métrique ou garder H4
+  réfutée) à prendre avec la session mère.

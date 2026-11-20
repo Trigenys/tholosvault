@@ -10,9 +10,11 @@
 //! octet du format lui-même.
 
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use vault_core::{Archive, ChunkCache};
+use vault_core::{Archive, CacheStats, ChunkCache};
 
 mod error;
 #[cfg(all(target_os = "linux", feature = "fuse"))]
@@ -31,8 +33,22 @@ pub type Ino = u64;
 pub const ROOT_INO: Ino = 1;
 
 /// Morceaux décompressés gardés en mémoire (LRU) pour servir les lectures
-/// séquentielles découpées par le noyau sans redécompresser.
-pub const CACHE_CHUNKS: usize = 16;
+/// séquentielles découpées par le noyau sans redécompresser. Dimensionné pour
+/// une fenêtre de lecture anticipée de 1 MiB (jusqu'à 16 morceaux de 64 KiB)
+/// servie par plusieurs fils sur plusieurs fichiers à la fois : 64 morceaux,
+/// soit 16 MiB au plus avec des morceaux de 256 KiB (ADR-0004).
+pub const CACHE_CHUNKS: usize = 64;
+
+/// Compteurs des lectures servies par [`VaultFs::read`] (diagnostic, bancs).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ReadStats {
+    /// Appels à [`VaultFs::read`].
+    pub calls: u64,
+    /// Octets rendus par ces appels.
+    pub bytes: u64,
+    /// Compteurs du cache de morceaux.
+    pub cache: CacheStats,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NodeKind {
@@ -73,6 +89,8 @@ pub struct VaultFs {
     cache: ChunkCache,
     mtime: SystemTime,
     bytes: u64,
+    read_calls: AtomicU64,
+    read_bytes: AtomicU64,
 }
 
 impl VaultFs {
@@ -95,7 +113,29 @@ impl VaultFs {
             cache: ChunkCache::new(CACHE_CHUNKS),
             mtime,
             bytes,
+            read_calls: AtomicU64::new(0),
+            read_bytes: AtomicU64::new(0),
         })
+    }
+
+    /// Remplace le cache de morceaux par un cache vide de `chunks` entrées
+    /// (0 : aucune mise en cache). Les compteurs du cache repartent de zéro.
+    pub fn set_cache_chunks(&mut self, chunks: usize) {
+        self.cache = ChunkCache::new(chunks);
+    }
+
+    pub fn cache_chunks(&self) -> usize {
+        self.cache.capacity()
+    }
+
+    /// Compteurs cumulés depuis l'ouverture (ou le dernier
+    /// [`VaultFs::set_cache_chunks`] pour la partie cache).
+    pub fn read_stats(&self) -> ReadStats {
+        ReadStats {
+            calls: self.read_calls.load(Ordering::Relaxed),
+            bytes: self.read_bytes.load(Ordering::Relaxed),
+            cache: self.cache.stats(),
+        }
     }
 
     pub fn archive(&self) -> &Archive {
@@ -180,9 +220,12 @@ impl VaultFs {
         match node.kind {
             Kind::Dir { .. } => Err(FsError::IsDir),
             Kind::File { file } => {
-                Ok(self
+                let n = self
                     .archive
-                    .read_range_into_cached(file, offset, buf, &self.cache)?)
+                    .read_range_into_cached(file, offset, buf, &self.cache)?;
+                self.read_calls.fetch_add(1, Ordering::Relaxed);
+                self.read_bytes.fetch_add(n as u64, Ordering::Relaxed);
+                Ok(n)
             }
         }
     }
@@ -200,6 +243,8 @@ impl VaultFs {
 pub struct MountOptions {
     /// Threads servant les requêtes du noyau (`None` : parallélisme disponible).
     pub threads: Option<usize>,
+    /// Morceaux gardés en cache (`None` : [`CACHE_CHUNKS`] ; `Some(0)` : aucun cache).
+    pub cache_chunks: Option<usize>,
     /// Autoriser les autres utilisateurs (FUSE `allow_other`).
     pub allow_other: bool,
     /// Durée de validité des attributs et entrées côté noyau. L'archive est
@@ -211,6 +256,7 @@ impl Default for MountOptions {
     fn default() -> Self {
         MountOptions {
             threads: None,
+            cache_chunks: None,
             allow_other: false,
             ttl: Duration::from_secs(3600),
         }
@@ -221,6 +267,7 @@ impl Default for MountOptions {
 /// démonte explicitement et remonte l'erreur éventuelle.
 pub struct MountHandle {
     inner: handle::Inner,
+    fs: Arc<VaultFs>,
 }
 
 mod handle {
@@ -233,6 +280,12 @@ mod handle {
 }
 
 impl MountHandle {
+    /// Le système de fichiers servi : ses compteurs ([`VaultFs::read_stats`])
+    /// reflètent les requêtes du noyau.
+    pub fn fs(&self) -> &VaultFs {
+        &self.fs
+    }
+
     /// Vrai tant que la session sert des requêtes.
     pub fn is_alive(&self) -> bool {
         match &self.inner {
@@ -263,11 +316,17 @@ pub fn mount(
     mountpoint: &Path,
     opts: &MountOptions,
 ) -> Result<MountHandle, MountError> {
+    let mut fs = fs;
+    if let Some(n) = opts.cache_chunks {
+        fs.set_cache_chunks(n);
+    }
+    let fs = Arc::new(fs);
     #[cfg(all(target_os = "linux", feature = "fuse"))]
     {
-        let session = fuse::spawn(fs, mountpoint, opts)?;
+        let session = fuse::spawn(fs.clone(), mountpoint, opts)?;
         Ok(MountHandle {
             inner: handle::Inner::Fuse(Some(session)),
+            fs,
         })
     }
     #[cfg(not(all(target_os = "linux", feature = "fuse")))]

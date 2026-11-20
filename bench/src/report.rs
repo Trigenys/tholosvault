@@ -537,7 +537,12 @@ mod tests {
         let mut p = BTreeMap::new();
         p.insert(
             "H4".to_string(),
-            vec![Measured::scalar("h4.core_read_ratio", 0.95)],
+            vec![
+                Measured::scalar("h4.core_read_ratio", 0.95),
+                Measured::scalar("h4.core_concurrent_read_ratio", 0.9),
+                Measured::scalar("h4.core_concurrent_decode_ratio", 1.0),
+                Measured::scalar("h4.threads", 4.0),
+            ],
         );
         p
     }
