@@ -331,3 +331,11 @@
 - Prérequis code (PR séparée, après le chantier débit FUSE) : abstraction de source de morceaux dans
   `vault-core` ; rien ne touche `vault-mount` ici.
 - Branche `docs/adr-0005-telechargement` créée par plumbing (HEAD et work tree intacts).
+
+## 2026-11-20 09:08 — Recherche : mécanique, histoire et goulots du téléchargement
+
+- Ajout de `docs/recherche/telechargement-histoire-goulots.md` (BLUF, mécanique TCP/HTTP/QUIC/CDN,
+  chronologie FTP → Xet, goulots, bornes, tendances 2025–2026, implications pour `vault-fetch`, 61 sources).
+- L'ADR-0005 renvoie à ce rapport dans sa section « Veille en ligne ».
+- Commit 6d63056 poussé sur `docs/adr-0005-telechargement` (PR #10), par-dessus la séance de vision produit (b9def6a).
+- Reste : relecture et fusion de la PR #10 par le propriétaire.
