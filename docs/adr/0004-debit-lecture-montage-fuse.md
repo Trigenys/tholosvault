@@ -1,6 +1,6 @@
 # ADR-0004 — Débit de lecture à travers le montage FUSE
 
-- **Statut** : accepté
+- **Statut** : accepté ; complété le 2026-11-20 par les mesures du chantier et la reformulation de H4 (section finale)
 - **Date** : 2026-11-20
 - **Contexte** : la thèse H4 (`docs/recherche/`) annonce qu'un montage lit « à la vitesse du décodeur ».
   Le banc (`bench/`, thèse H4, PR #9) la mesure pour la première fois avec un pilote réel, sur
@@ -42,3 +42,76 @@
   seuil. Remettre la métrique en bloquant ou changer le seuil passe par une PR qui cite les mesures.
 - **Dérogation RAIDER** : D (non-régressif) — un seuil déclaré n'est pas appliqué par la CI ; bornée par le
   chantier de suivi et visible dans chaque rapport.
+
+## Mesures du chantier « lecture séquentielle à travers FUSE » (2026-11-20)
+
+Le chantier a appliqué les pistes (a) à (d) et mesuré la (e). La cause présumée est **infirmée** : le
+cache multipliait bien le travail en théorie, mais ce n'est pas ce qui fait 0,18.
+
+- **(a) Vol unique dans `ChunkCache`** : implémenté (`get_or_decode`, compteurs `hits`/`decodes`/`joined`,
+  test de concurrence). Nouvelle métrique `h4.mount_decode_ratio` (décodages ÷ morceaux de l'archive) :
+  **1,00** à travers le noyau, borne bloquante `h4.core_concurrent_decode_ratio` ≤ 1,05 (**1,00**). Chaque
+  morceau est décodé une seule fois : le décodage n'est pas le goulot.
+- **(b) `--threads 1` contre parallélisme** : `h4.mount_read_ratio_1thread` ≈ `h4.mount_read_ratio`
+  (laboratoire : 0,09 contre 0,06 ; sonde : 0,45–0,67 contre 0,46–0,56 sur gros fichiers). Le noyau
+  plafonne la lecture anticipée FUSE à 128 KiB (`VM_READAHEAD_PAGES`) : pour un lecteur séquentiel, les
+  requêtes de 128 KiB sont **émises l'une après l'autre**, le parallélisme du démon ne sert à rien.
+  `h4.mount_req_kib` (taille moyenne d'une requête du noyau) le confirme : 26 KiB en moyenne (fichiers
+  `code` de 1 à 64 KiB), 128 KiB au plus.
+- **(c) Réponse sans allocation** : tampon réutilisé par fil de service (`READ_BUF`). Gain marginal.
+- **(d) Cache dimensionné** : 64 morceaux (16 MiB au plus). Sans effet mesurable une fois (a) en place.
+- **(e) `FOPEN_DIRECT_IO` + `FUSE_ASYNC_DIO`** : mesuré par sonde en laboratoire puis **rejeté**. Gros
+  fichiers : 0,46–0,61 (80 requêtes de 1 MiB au lieu de 256 de 128 KiB, gain nul) ; petits fichiers :
+  0,04–0,05 au lieu de 0,08–0,10 (le mode direct rétablit `open`/`release` et ajoute une lecture de fin
+  de fichier par fichier). Le code de l'option a été retiré.
+- **Ajout : `FUSE_NO_OPEN_SUPPORT`** : quand le noyau l'annonce, `open` répond `ENOSYS` et le noyau cesse
+  d'émettre `open`/`release` (cache de pages conservé). Sur petits fichiers : ~300–430 µs/fichier →
+  ~200 µs/fichier (1,5 ×). Capacité `FUSE_PARALLEL_DIROPS` activée.
+
+**Où est la perte.** Sonde en laboratoire (WSL2, Docker, noyau 6.18, 6 cœurs ; `vault-core` lit le même
+contenu en 15 µs par morceau) :
+
+| Corpus | Lecture directe ÷ montage | Coût dominant |
+|---|---|---|
+| 16 fichiers de 2 MiB (flux) | 0,45–0,67 | 256 allers-retours de 128 KiB à ~110 µs (plafond de lecture anticipée) |
+| 2167 fichiers de 1 à 64 KiB | 0,04–0,10 | `lookup` + `read` + `getattr` par fichier, ~200 µs, pour ~15 µs de décodage |
+
+Le banc CI mélange les deux (corpus `code` : 1107 fichiers de 1 à 64 KiB ; corpus `binary` : 4 KiB à
+2 MiB) ; le corpus `code` domine l'agrégat. Les nouvelles métriques informatives `h4.mount_read_ratio_code`
+et `h4.mount_read_ratio_binary` séparent les deux régimes. Mesures CI `ubuntu-latest` (4 vCPU, exécution
+44726058404, PR #12), après le chantier :
+
+| Métrique | Avant (PR #9) | Après (PR #12) | Seuil |
+|---|---|---|---|
+| `h4.core_read_ratio` | 0,99 | 0,96 | ≥ 0,9 ✓ |
+| `h4.core_concurrent_decode_ratio` (nouvelle) | — | 1,00 | ≤ 1,05 ✓ (bloquante) |
+| `h4.mount_decode_ratio` (nouvelle) | — | 1,00 | — |
+| `h4.mount_open_p99_over_blake3_mib` | 0,69 | 0,62 | ≤ 1 ✓ |
+| `h4.mount_read_ratio` | 0,18 | **0,21** | ≥ 0,7 ✗ (non bloquante) |
+| `h4.mount_read_ratio_1thread` (nouvelle) | — | 0,23 | — |
+| `h4.mount_read_ratio_code` (nouvelle) | — | 0,19 | — |
+| `h4.mount_read_ratio_binary` (nouvelle) | — | 0,28 | — |
+| `h4.mount_req_kib` (nouvelle) | — | 25,8 KiB | — |
+
+Un seul fil de service fait aussi bien que quatre (0,23 contre 0,21) : les requêtes sont bien émises en
+série. Le corpus `binary` lui-même (4 KiB à 2 MiB) reste à 0,28 : sa moitié de petits fichiers pèse autant
+que ses gros. Le plancher est la **latence d'un aller-retour FUSE par requête**, une
+propriété du trajet noyau ↔ espace utilisateur, pas du format ni du décodeur.
+
+**Conséquence sur la décision.** Le seuil ≥ 0,7 sur l'agrégat n'est pas atteignable sans changer ce qui
+est mesuré ; il reste déclaré et **non bloquant** (option 3, inchangée), le verdict H4 reste `refuted`
+sur le débit à travers le noyau. Deux issues ont été considérées : (i) scinder la métrique en débit en
+flux sur `binary` et coût par fichier sur `code`, avec des seuils tirés des chiffres CI — **refusée**,
+c'est l'option 1 sous un autre nom (un seuil fixé d'après la mesure ne réfute plus rien) ; (ii) garder
+H4 réfutée et **reformuler la thèse** — **retenue**. H4 devient : « le cœur d'un montage lit à la vitesse
+du décodeur ; à travers le noyau, le débit est borné par la latence par requête ». Le premier membre est
+soutenu (`h4.core_read_ratio` 0,96, `h4.core_concurrent_decode_ratio` 1,00), le second est ce que la
+mesure établit. Les métriques, seuils et verdict du banc sont inchangés : seul le titre de la thèse
+(`bench/config.json`, `bench/README.md`) l'est.
+
+Un coût par fichier à travers FUSE peut faire l'objet d'une **nouvelle thèse (H4bis)** dans
+`docs/recherche/`, PR séparée, avec un seuil dérivé a priori et non de la valeur observée (par exemple :
+coût par requête ≤ 2 × l'aller-retour noyau d'un système de fichiers passthrough nul mesuré
+indépendamment), non bloquante tant qu'elle n'a pas tourné trois fois en CI. La borne
+`h4.core_concurrent_decode_ratio` ≤ 1,05 reste bloquante : elle est justifiée a priori (un morceau ne se
+décode qu'une fois). Relever ou abaisser le seuil à la mesure reste refusé.
