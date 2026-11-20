@@ -1,4 +1,5 @@
-//! H4 — Un montage lit à la vitesse du décodeur. Référence : lecture
+//! H4 — Le cœur d'un montage lit à la vitesse du décodeur ; à travers le
+//! noyau, le débit est borné par la latence par requête (ADR-0004). Référence : lecture
 //! séquentielle directe par `vault-core` (requêtes d'1 MiB). Confrontés :
 //! le cœur de `vault-mount` servi en requêtes de 128 KiB comme le noyau
 //! (toujours mesuré, en un fil puis sous la concurrence du noyau), puis, si

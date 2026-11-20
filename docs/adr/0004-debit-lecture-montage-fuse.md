@@ -1,6 +1,6 @@
 # ADR-0004 — Débit de lecture à travers le montage FUSE
 
-- **Statut** : accepté ; complété le 2026-11-20 par les mesures du chantier (section finale)
+- **Statut** : accepté ; complété le 2026-11-20 par les mesures du chantier et la reformulation de H4 (section finale)
 - **Date** : 2026-11-20
 - **Contexte** : la thèse H4 (`docs/recherche/`) annonce qu'un montage lit « à la vitesse du décodeur ».
   Le banc (`bench/`, thèse H4, PR #9) la mesure pour la première fois avec un pilote réel, sur
@@ -100,8 +100,18 @@ propriété du trajet noyau ↔ espace utilisateur, pas du format ni du décodeu
 
 **Conséquence sur la décision.** Le seuil ≥ 0,7 sur l'agrégat n'est pas atteignable sans changer ce qui
 est mesuré ; il reste déclaré et **non bloquant** (option 3, inchangée), le verdict H4 reste `refuted`
-sur le débit à travers le noyau. Deux issues possibles, qui passent par une nouvelle PR citant les
-mesures CI : (i) scinder la métrique — débit en flux sur `binary` (seuil à fixer après mesure CI) et
-coût par fichier sur `code` (µs/fichier au-dessus du décodeur, seuil propre) ; (ii) garder H4 réfutée et
-reformuler la thèse (« à la vitesse du décodeur » n'est vraie que pour le cœur, pas à travers FUSE).
-Relever ou abaisser le seuil à la mesure reste refusé.
+sur le débit à travers le noyau. Deux issues ont été considérées : (i) scinder la métrique en débit en
+flux sur `binary` et coût par fichier sur `code`, avec des seuils tirés des chiffres CI — **refusée**,
+c'est l'option 1 sous un autre nom (un seuil fixé d'après la mesure ne réfute plus rien) ; (ii) garder
+H4 réfutée et **reformuler la thèse** — **retenue**. H4 devient : « le cœur d'un montage lit à la vitesse
+du décodeur ; à travers le noyau, le débit est borné par la latence par requête ». Le premier membre est
+soutenu (`h4.core_read_ratio` 0,96, `h4.core_concurrent_decode_ratio` 1,00), le second est ce que la
+mesure établit. Les métriques, seuils et verdict du banc sont inchangés : seul le titre de la thèse
+(`bench/config.json`, `bench/README.md`) l'est.
+
+Un coût par fichier à travers FUSE peut faire l'objet d'une **nouvelle thèse (H4bis)** dans
+`docs/recherche/`, PR séparée, avec un seuil dérivé a priori et non de la valeur observée (par exemple :
+coût par requête ≤ 2 × l'aller-retour noyau d'un système de fichiers passthrough nul mesuré
+indépendamment), non bloquante tant qu'elle n'a pas tourné trois fois en CI. La borne
+`h4.core_concurrent_decode_ratio` ≤ 1,05 reste bloquante : elle est justifiée a priori (un morceau ne se
+décode qu'une fois). Relever ou abaisser le seuil à la mesure reste refusé.

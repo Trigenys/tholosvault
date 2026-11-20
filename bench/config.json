@@ -71,7 +71,7 @@
       }
     },
     "H4": {
-      "title": "Un montage FUSE/WinFsp lit à la vitesse du décodeur",
+      "title": "Le cœur d'un montage lit à la vitesse du décodeur ; à travers le noyau (FUSE/WinFsp), le débit est borné par la latence par requête",
       "status": "measured",
       "metrics": {
         "h4.threads": {

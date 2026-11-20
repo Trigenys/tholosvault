@@ -398,3 +398,10 @@
   `decode_ratio` 1,00, `core_read_ratio` 0,96, `open_p99` 0,62. Tableau avant/après ajouté à l'ADR-0004.
 - Verrous : seuil ≥ 0,7 inchangé et non bloquant ; aucune décision prise sur la scission de la métrique.
 - Prochaine étape : réponse de la session mère (scinder la métrique ou garder H4 réfutée), puis revue/merge de la PR.
+
+## 2026-11-20 12:22 — vault-mount (H4) : option (ii) retenue, thèse H4 reformulée dans la PR #12
+- Décision de la session mère : pas de scission de métrique (seuil tiré de la mesure = option 1 refusée). H4 reformulée
+  (titre `bench/config.json`, `bench/README.md`, en-tête `h4.rs`) : « le cœur lit à la vitesse du décodeur ; à travers
+  le noyau, débit borné par la latence par requête ». Métriques, seuils, verdict inchangés ; `decode_ratio` ≤ 1,05 reste bloquant.
+- Piste ouverte, PR séparée : thèse H4bis (coût par fichier FUSE, seuil a priori contre un passthrough nul, non bloquante 3 runs CI).
+- Prochaine étape : vert CI de la PR #12, puis revue/merge. Rien d'autre attendu de cette session.
