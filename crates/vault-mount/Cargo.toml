@@ -1,19 +1,24 @@
 [package]
 name = "vault-mount"
 version = "0.1.0"
-description = "Montage lecture seule d'une archive tholosvault : cœur agnostique de l'OS et adaptateur FUSE."
+description = "Montage lecture seule d'une archive tholosvault : cœur agnostique de l'OS et adaptateurs FUSE (Linux) et WinFsp (Windows)."
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-# fuser 0.18 est en edition 2024 (MSRV 1.85) ; le reste du workspace annonce 1.80.
-# Voir README.md du crate.
+# fuser 0.18 et winfsp 0.13 sont en edition 2024 (MSRV 1.85) ; le reste du
+# workspace annonce 1.80. Voir README.md du crate.
 rust-version = "1.85"
+build = "build.rs"
 
 [features]
 default = ["fuse"]
 # Adaptateur FUSE (Linux). Sans effet sur les autres cibles : le cœur reste
 # compilable et testable partout, `probe()` renvoie alors `NotCompiled`.
 fuse = ["dep:fuser"]
+# Adaptateur WinFsp (Windows). Sans effet hors Windows. Le binaire démarre
+# sans le pilote (liaison `/DELAYLOAD`) : `probe()` renvoie alors
+# `DriverUnavailable` avec le conseil d'installation.
+winfsp = ["dep:winfsp", "dep:windows", "dep:windows-registry"]
 
 [dependencies]
 vault-core.workspace = true
@@ -21,6 +26,21 @@ thiserror.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 fuser = { version = "0.18", optional = true, default-features = false }
+
+[target.'cfg(windows)'.dependencies]
+winfsp = { version = "0.13", optional = true, default-features = false, features = ["delayload", "windows-61"] }
+windows = { version = "0.61", optional = true, features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+] }
+windows-registry = { version = "0.6", optional = true }
+
+[target.'cfg(windows)'.build-dependencies]
+winfsp = { version = "0.13", optional = true, default-features = false, features = ["delayload"] }
 
 [dev-dependencies]
 tempfile.workspace = true

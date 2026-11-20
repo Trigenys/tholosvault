@@ -104,6 +104,8 @@
           "unit": "ratio",
           "threshold": { "op": "<=", "value": 1 },
           "blocking": true,
+          "non_blocking_on": ["windows"],
+          "adr": "docs/adr/0007-latence-ouverture-montage-winfsp.md",
           "requires": "mount"
         }
       }
