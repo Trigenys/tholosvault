@@ -1,0 +1,26 @@
+[package]
+name = "vault-mount"
+version = "0.1.0"
+description = "Montage lecture seule d'une archive tholosvault : cœur agnostique de l'OS et adaptateur FUSE."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# fuser 0.18 est en edition 2024 (MSRV 1.85) ; le reste du workspace annonce 1.80.
+# Voir README.md du crate.
+rust-version = "1.85"
+
+[features]
+default = ["fuse"]
+# Adaptateur FUSE (Linux). Sans effet sur les autres cibles : le cœur reste
+# compilable et testable partout, `probe()` renvoie alors `NotCompiled`.
+fuse = ["dep:fuser"]
+
+[dependencies]
+vault-core.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+fuser = { version = "0.18", optional = true, default-features = false }
+
+[dev-dependencies]
+tempfile.workspace = true

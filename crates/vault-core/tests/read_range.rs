@@ -174,3 +174,80 @@ fn metadata_readable_without_any_decompression() {
     assert!(!ar.chunk_span(idx, 0, 4096).unwrap().is_empty());
     assert!(ar.read_range(BIG, 0, 1).is_err());
 }
+
+/// La variante mise en cache rend les mêmes octets que la lecture directe, sur
+/// une grille d'offsets et de tailles pseudo-aléatoires, et ne décompresse
+/// chaque morceau qu'une fois lors d'un parcours séquentiel.
+#[test]
+fn cached_reads_match_direct_reads() {
+    use vault_core::ChunkCache;
+    let (_tmp, path, big) = setup();
+    let ar = Archive::open(&path).unwrap();
+    let idx = ar.find_index(BIG).unwrap();
+    let cache = ChunkCache::new(4);
+    let mut rng = 0x9e37_79b9_7f4a_7c15u64;
+    for _ in 0..200 {
+        rng ^= rng << 13;
+        rng ^= rng >> 7;
+        rng ^= rng << 17;
+        let off = rng % (big.len() as u64 + 4096);
+        let len = ((rng >> 20) % 300_000) as usize;
+        let mut a = vec![0u8; len];
+        let mut b = vec![0u8; len];
+        let na = ar.read_range_into(idx, off, &mut a).unwrap();
+        let nb = ar.read_range_into_cached(idx, off, &mut b, &cache).unwrap();
+        assert_eq!(na, nb);
+        assert_eq!(&a[..na], &b[..nb]);
+        assert_eq!(&a[..na], clamp(&big, off, len));
+    }
+    assert!(cache.len() <= 4);
+
+    // Parcours séquentiel par requêtes de 128 KiB : contenu complet reconstitué.
+    let cache = ChunkCache::default();
+    let mut out = Vec::new();
+    let mut buf = vec![0u8; 128 * 1024];
+    let mut pos = 0u64;
+    loop {
+        let n = ar
+            .read_range_into_cached(idx, pos, &mut buf, &cache)
+            .unwrap();
+        if n == 0 {
+            break;
+        }
+        out.extend_from_slice(&buf[..n]);
+        pos += n as u64;
+    }
+    assert_eq!(out, big);
+}
+
+/// Un morceau corrompu reste une erreur à chaque lecture : il n'entre jamais
+/// dans le cache.
+#[test]
+fn corrupted_chunk_is_never_cached() {
+    use vault_core::ChunkCache;
+    let (_tmp, path, _) = setup();
+    let (target, start) = {
+        let ar = Archive::open(&path).unwrap();
+        let f = ar.find(BIG).unwrap();
+        let c1 = &ar.chunks()[f.chunks[1] as usize];
+        (
+            c1.offset as usize,
+            ar.chunks()[f.chunks[0] as usize].len as u64,
+        )
+    };
+    let mut bytes = fs::read(&path).unwrap();
+    for b in &mut bytes[target + 4..target + 12] {
+        *b ^= 0xff;
+    }
+    fs::write(&path, &bytes).unwrap();
+    let ar = Archive::open(&path).unwrap();
+    let idx = ar.find_index(BIG).unwrap();
+    let cache = ChunkCache::default();
+    let mut buf = [0u8; 16];
+    for _ in 0..2 {
+        assert!(ar
+            .read_range_into_cached(idx, start + 10, &mut buf, &cache)
+            .is_err());
+    }
+    assert!(cache.is_empty());
+}

@@ -224,6 +224,11 @@
 - `bench/config.json` : `blocking: true` (seuil ≤ 3 inchangé, champ `adr` conservé). ADR-0003 « Suivi (2026-11-17) », B-001, `bench/README.md`, `bench/results/ci.*` à jour.
 - Reste : PR `bench/calibration-h5` → CI → fusion ; puis chantiers `vault-mount` (H4), delta (H6), shards de secours écrits en place + `reconstruct` parallèle.
 
+## 2026-11-17 00:37 — Chantier vault-mount (H4) démarré
+
+- Choisi par le commanditaire après la fusion de la PR 7 (b9d00e1). Rien de modifié encore ; cadrage en cours (crate `vault-mount` absent du workspace : seul `crates/vault-mount/README.md` existe ; H4 `not_measured` dans `bench/config.json`, surface `mount` déjà déclarée dans `.github/appfactory-impact.json`).
+- Plan : cœur OS-agnostique testable sans pilote (table d inodes, lookup/readdir/read sur `Archive::read_range_into`), adaptateurs `fuser` (unix) / WinFsp (windows) derrière des fonctionnalités Cargo, `tholos mount`, thèse H4 mesurée en CI ubuntu (fuse3), ignorée proprement sans pilote.
+
 ## 2026-11-17 09:28 — Balayage de secours du trailer (section de parité, disposition 1)
 
 - La section de parité embarque une copie du trailer (128 o) entre son en-tête et les tables de CRC ;
@@ -238,3 +243,44 @@
   explicitement les options sans parité.
 - Reste : répliquer l'en-tête et les tables de CRC de la section (une section à en-tête abîmé perd sa parité
   et sa copie de trailer).
+
+## 2026-11-17 09:31 — PR #8 ouverte (balayage trailer)
+
+- `main` est protégée (PR obligatoire) : commit `f19f375` poussé sur `feat/trailer-balayage-parite`,
+  PR https://github.com/Trigenys/tholosvault/pull/8. Le `main` local est en avance d'un commit sur
+  `origin/main` tant que la PR n'est pas fusionnée (ne pas reset ; après fusion, `git pull --rebase`
+  ou réalignement manuel si squash).
+- Prochaine étape candidate : répliquer l'en-tête et les tables de CRC de la section de parité.
+
+## 2026-11-19 23:17 — Chantier vault-mount (H4) : banc en cours, rien commité
+
+- Fait (non commité, dossier de travail) : crate `crates/vault-mount` (cœur VaultFs testé sans pilote,
+  adaptateur FUSE derrière la feature `fuse`, sonde `probe()`), `tholos mount` dans vault-cli,
+  `bench/config.json` H4 mesurée avec champ `requires: mount`, `bench/src/report.rs` (capacités d'hôte,
+  métriques sautées → verdict `incomplete`), `bench/src/theses/h4.rs`, `main.rs` (`--require-env`).
+- Reste : compiler/tester le banc (Windows : H4 `incomplete`, code 0) ; CI ubuntu avec fuse3 et
+  `--require-env mount` ; impact json ; docs (README vault-mount, bench/README, lessons-learned,
+  stack.md) ; preuve Linux via WSL Ubuntu (`wsl -d Ubuntu -e bash -lc 'source ~/.cargo/env; ...'`,
+  `CARGO_TARGET_DIR=/tmp/vault-target`) ; branche `feat/vault-mount` par plumbing, PR, fusion.
+- Règle : jamais assouplir un seuil ; une réfutation en CI passe par ADR.
+
+## 2026-11-19 23:40 — vault-mount (H4) : vérifié sous Windows, preuve Linux en cours
+
+- Windows : fmt, clippy workspace -D warnings, tests workspace, build release : verts. Banc H4 seul :
+  `h4.core_read_ratio` 0,95 (seuil 0,9), montage sauté → verdict `incomplete`, code 0.
+- CI : fuse3 installé sur ubuntu, tests `vault-mount` (sans feature + `fuse_mount --ignored`), banc avec
+  `--require-env mount`. Impact : `cli`/`bench` dépendent de `mount`, `mount` déclenche `bench`.
+- Docs faites : `crates/vault-mount/README.md`, `bench/README.md` (H4, `requires`), lessons I-003,
+  stack.md. Reste : lire `scratchpad/wsl2.log` (clippy, tests, montage réel, banc H4 avec montage dans
+  WSL Ubuntu ; script `wsl_check.sh`, lancer via `wsl -d Ubuntu -e bash -c 'bash /mnt/c/...'`), puis
+  branche `feat/vault-mount` par plumbing (index temporaire), PR avec RAIDER review, CI, fusion.
+- Piège : `/mnt/c/Users/lawry/.cargo/config.toml` impose `sccache` à cargo WSL → `CARGO_BUILD_RUSTC_WRAPPER=`.
+
+## 2026-11-20 05:32 — vault-mount (H4) : PR #8 fusionnée, ouverture de la PR vault-mount
+
+- PR #8 (balayage du trailer) fusionnée dans `main` (`ce73451`) ; HEAD local réaligné, arbre identique.
+- Preuve Linux locale impossible : WSL Ubuntu sans `libc6-dev` (sudo à mot de passe). La CI ubuntu de la
+  PR fournit la première compilation de `fuse.rs`, le montage réel et la mesure H4 avec pilote.
+- Étape en cours : branche `feat/vault-mount` par plumbing (index temporaire), push, PR avec le corps
+  `scratchpad/pr_body.md` (RAIDER review), surveillance CI, fusion. Si H4 est réfutée en CI : ADR, jamais
+  de seuil assoupli en silence.

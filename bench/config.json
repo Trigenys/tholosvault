@@ -72,9 +72,41 @@
     },
     "H4": {
       "title": "Un montage FUSE/WinFsp lit à la vitesse du décodeur",
-      "status": "not_measured",
-      "reason": "vault-mount n'existe pas encore",
-      "prerequisite": "crate vault-mount (surface mount)"
+      "status": "measured",
+      "metrics": {
+        "h4.core_read_ratio": {
+          "unit": "ratio",
+          "threshold": { "op": ">=", "value": 0.9 },
+          "blocking": true,
+          "source": "lecture séquentielle de vault-core (1 MiB) ÷ lecture par VaultFs en requêtes de 128 KiB, cache froid"
+        },
+        "h4.mount_content_ok": {
+          "unit": "ratio",
+          "threshold": { "op": "==", "value": 1 },
+          "blocking": true,
+          "requires": "mount",
+          "source": "BLAKE3 de chaque fichier lu à travers le noyau égal à celui du corpus, sur toutes les passes"
+        },
+        "h4.mount_read_ratio": {
+          "unit": "ratio",
+          "threshold": { "op": ">=", "value": 0.7 },
+          "blocking": false,
+          "adr": "docs/adr/0004-debit-lecture-montage-fuse.md",
+          "requires": "mount",
+          "source": "lecture séquentielle de vault-core ÷ lecture std::fs du montage (médiane de 3 passes)"
+        },
+        "h4.mount_open_ns": {
+          "unit": "ns",
+          "requires": "mount",
+          "source": "p99 de File::open sur des chemins aléatoires du corpus small1 monté"
+        },
+        "h4.mount_open_p99_over_blake3_mib": {
+          "unit": "ratio",
+          "threshold": { "op": "<=", "value": 1 },
+          "blocking": true,
+          "requires": "mount"
+        }
+      }
     },
     "H5": {
       "title": "La parité Reed-Solomon répare dégâts aléatoires et contigus dans son budget, à un coût proche de BLAKE3",

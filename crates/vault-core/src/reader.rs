@@ -11,10 +11,11 @@ use std::fs;
 use std::io::{Seek, SeekFrom, Write};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use memmap2::Mmap;
 
+use crate::cache::ChunkCache;
 use crate::codec;
 use crate::error::{Error, Result};
 use crate::format::{self, Header, Trailer, HEADER_LEN, TRAILER_COPIES, TRAILER_LEN};
@@ -246,6 +247,37 @@ impl Archive {
     /// couvrant la plage sont décompressés, chacun vérifié par son hachage ; la
     /// racine Merkle du fichier n'est pas recalculée (voir [`Archive::verify`]).
     pub fn read_range_into(&self, file: usize, offset: u64, buf: &mut [u8]) -> Result<usize> {
+        self.read_range_with(file, offset, buf, |idx| self.read_chunk(idx).map(Arc::from))
+    }
+
+    /// Comme [`Archive::read_range_into`], mais les morceaux décompressés et
+    /// vérifiés passent par `cache` : une suite de lectures partielles
+    /// (montage, flux) ne décompresse chaque morceau qu'une fois. Un morceau
+    /// corrompu renvoie l'erreur et n'entre jamais dans le cache.
+    pub fn read_range_into_cached(
+        &self,
+        file: usize,
+        offset: u64,
+        buf: &mut [u8],
+        cache: &ChunkCache,
+    ) -> Result<usize> {
+        self.read_range_with(file, offset, buf, |idx| {
+            if let Some(d) = cache.get(idx) {
+                return Ok(d);
+            }
+            let d: Arc<[u8]> = Arc::from(self.read_chunk(idx)?);
+            cache.insert(idx, d.clone());
+            Ok(d)
+        })
+    }
+
+    fn read_range_with(
+        &self,
+        file: usize,
+        offset: u64,
+        buf: &mut [u8],
+        mut chunk: impl FnMut(u32) -> Result<Arc<[u8]>>,
+    ) -> Result<usize> {
         let f = self.file_at(file)?;
         if offset >= f.size || buf.is_empty() {
             return Ok(0);
@@ -255,7 +287,7 @@ impl Archive {
         let starts = cs.file_starts(file);
         let mut written = 0usize;
         for pos in cs.span(file, f.size, offset, want) {
-            let data = self.read_chunk(f.chunks[pos])?;
+            let data = chunk(f.chunks[pos])?;
             let skip = offset.saturating_sub(starts[pos]) as usize;
             let take = (data.len() - skip).min(want - written);
             buf[written..written + take].copy_from_slice(&data[skip..skip + take]);

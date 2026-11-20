@@ -1,11 +1,16 @@
 [package]
 name = "vault-cli"
 version = "0.1.0"
-description = "CLI tholos : pack, list, verify, extract."
+description = "CLI tholos : pack, list, verify, repair, extract, cat, mount."
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-rust-version.workspace = true
+# vault-mount (fuser 0.18) impose 1.85 ; voir crates/vault-mount/README.md.
+rust-version = "1.85"
+
+[features]
+default = ["fuse"]
+fuse = ["vault-mount/fuse"]
 
 [[bin]]
 name = "tholos"
@@ -15,3 +20,5 @@ path = "src/main.rs"
 vault-core.workspace = true
 clap.workspace = true
 anyhow.workspace = true
+vault-mount.workspace = true
+ctrlc.workspace = true

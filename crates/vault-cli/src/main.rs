@@ -3,12 +3,15 @@
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
+use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use vault_core::{
     merkle, pack_dir, repair_file, scan_file, Archive, Damage, PackOptions, ParityOptions,
 };
+use vault_mount::{MountOptions, VaultFs};
 
 #[derive(Parser)]
 #[command(
@@ -54,6 +57,18 @@ enum Cmd {
         /// Nombre d'octets à lire (défaut : jusqu'à la fin du fichier).
         #[arg(long)]
         len: Option<u64>,
+    },
+    /// Monte l'archive en lecture seule sur un répertoire vide (FUSE sous Linux).
+    /// Ctrl-C démonte.
+    Mount {
+        archive: PathBuf,
+        mountpoint: PathBuf,
+        /// Threads servant les requêtes du noyau (défaut : parallélisme disponible).
+        #[arg(long)]
+        threads: Option<usize>,
+        /// Autoriser les autres utilisateurs à lire le montage.
+        #[arg(long)]
+        allow_other: bool,
     },
 }
 
@@ -202,7 +217,49 @@ fn main() -> Result<()> {
             }
             out.flush()?;
         }
+        Cmd::Mount {
+            archive,
+            mountpoint,
+            threads,
+            allow_other,
+        } => mount(&archive, &mountpoint, threads, allow_other)?,
     }
+    Ok(())
+}
+
+fn mount(
+    archive: &Path,
+    mountpoint: &Path,
+    threads: Option<usize>,
+    allow_other: bool,
+) -> Result<()> {
+    let backend = vault_mount::probe().map_err(|e| anyhow::anyhow!("{e}"))?;
+    let fs =
+        VaultFs::open(archive).with_context(|| format!("ouverture de {}", archive.display()))?;
+    let opts = MountOptions {
+        threads,
+        allow_other,
+        ..MountOptions::default()
+    };
+    let handle = vault_mount::mount(fs, mountpoint, &opts)
+        .with_context(|| format!("montage sur {}", mountpoint.display()))?;
+    eprintln!(
+        "{} monté sur {} ({backend}) ; Ctrl-C pour démonter",
+        archive.display(),
+        mountpoint.display()
+    );
+    let (tx, rx) = mpsc::channel();
+    ctrlc::set_handler(move || {
+        let _ = tx.send(());
+    })
+    .context("installation du gestionnaire Ctrl-C")?;
+    while handle.is_alive() {
+        if rx.recv_timeout(Duration::from_millis(500)).is_ok() {
+            break;
+        }
+    }
+    handle.unmount().context("démontage")?;
+    eprintln!("démonté");
     Ok(())
 }
 
@@ -236,14 +293,11 @@ fn open(p: &Path) -> Result<Archive> {
     Archive::open(p).with_context(|| format!("ouverture de {}", p.display()))
 }
 
-/// Refuse les chemins qui sortiraient du répertoire cible.
+/// Refuse les chemins qui sortiraient du répertoire cible (règle de `vault_core::path`).
 fn safe_join(root: &Path, rel: &str) -> Result<PathBuf> {
+    let parts = vault_core::path::components(rel)
+        .with_context(|| format!("chemin d'archive refusé : {rel}"))?;
     let mut out = root.to_path_buf();
-    for part in rel.split('/') {
-        if part.is_empty() || part == "." || part == ".." || part.contains(['\\', ':']) {
-            bail!("chemin d'archive refusé : {rel}");
-        }
-        out.push(part);
-    }
+    out.extend(parts);
     Ok(out)
 }

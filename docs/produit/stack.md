@@ -23,8 +23,8 @@ Briques (Adopt / Adapt) :
 | Hash | `BLAKE3-team/BLAKE3` crate `blake3` | Adopt |
 | Compression | crate `zstd` + format seekable (skippable frames) ; `kylewlacy/zstd-framed` (★6) comme référence d'implémentation seekable | Adopt `zstd`, Learn `zstd-framed` |
 | Parité | `AndersTrier/reed-solomon-simd` (actif, SIMD, GF(2¹⁶)) | Adopt ; `reed-solomon-erasure` en repli si API insuffisante |
-| Montage Linux/macOS | `cberner/fuser` | Adopt |
-| Montage Windows | `SnowflakePowered/winfsp-rs` ; `antimatter-studios/winfsp-fs-skeleton` (★3, squelette service auto-mount) | Adopt `winfsp-rs`, Learn le squelette |
+| Montage Linux/macOS | `cberner/fuser` (0.18, pur Rust, `fusermount3` à l'exécution, MSRV 1.85) | Adopté dans `vault-mount` (feature `fuse`) |
+| Montage Windows | `SnowflakePowered/winfsp-rs` (0.13) ; `antimatter-studios/winfsp-fs-skeleton` (★3, squelette service auto-mount) | Adopt `winfsp-rs` (adaptateur à venir derrière une feature `winfsp` de `vault-mount`), Learn le squelette |
 | macOS sans kext | `KhaosT/FSKitSample` (★106), `debox-network/FSKitBridge` (★21, pont FSKit → backend Rust/C) | Learn ; FUSE-T en repli, comme le rapport |
 | Algorithmes de layout | `mhx/dwarfs` (★2 635) : nilsimsa, segmentation, index non compressé | Adapt (réimplémentation Rust des idées, pas de dépendance C++) |
 | Recompression | `preflate-rs`, `lepton_jpeg` / JXL jbrd | Adopt en V1 (E3) |
