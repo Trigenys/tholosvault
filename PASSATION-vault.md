@@ -284,3 +284,58 @@
 - Étape en cours : branche `feat/vault-mount` par plumbing (index temporaire), push, PR avec le corps
   `scratchpad/pr_body.md` (RAIDER review), surveillance CI, fusion. Si H4 est réfutée en CI : ADR, jamais
   de seuil assoupli en silence.
+
+## 2026-11-20 05:55 — PR #9 vault-mount ouverte, correctif Linux poussé
+
+- PR #9 `feat/vault-mount` : https://github.com/Trigenys/tholosvault/pull/9 (corps = RAIDER review).
+  Premier passage CI : windows vert, ubuntu rouge sur E0597 dans `probe.rs` (recherche de `fusermount`
+  par référence dans l'expression finale). Corrigé (`into_iter`), commit `38c268e`, CI relancée.
+- Vérification Linux locale impossible : WSL sans libc6-dev (même les build scripts ne lient pas) ;
+  cible croisée depuis Windows bloquée par `zstd-sys` (pas de gcc croisé). La CI ubuntu reste la preuve.
+- Prochaine étape : lire les checks de la PR #9 ; si verts → `gh pr merge 9 --merge --delete-branch`,
+  `git fetch`, `git read-tree origin/main`, `git update-ref HEAD <new> <old>`, rapport final RAIDER.
+  Si H4 réfutée en CI → ADR, pas de seuil assoupli.
+
+## 2026-11-20 05:47 — ADR-0004 : réfutation H4 consignée, commit 631dee6 poussé sur la PR #9
+
+- CI ubuntu (run 44675746318) : `dead_code` sur `not_compiled` (corrigé par `cfg`) et **H4 réfutée** :
+  `h4.mount_read_ratio` 0,18 pour un seuil ≥ 0,7 (cœur 0,99, contenu exact, ouverture 0,69 ✓).
+- Décision : seuil inchangé, métrique non bloquante + `adr` → `docs/adr/0004-debit-lecture-montage-fuse.md`
+  (cause présumée : `ChunkCache` sans vol unique sous requêtes concurrentes du noyau). B-002 dans
+  lessons-learned, README du banc, corps de PR mis à jour.
+- Local Windows : fmt, tests `vault-bench` (14), clippy verts. Banc H4 local bruité (cœur 0,85 / 0,83 /
+  0,53 contre 0,95 plus tôt, charge machine ~27 %) : `h4.core_read_ratio` est sensible à la charge car
+  référence et cœur sont mesurés dans des boucles séparées ; la CI ubuntu (0,99) reste la référence.
+  À surveiller dans le chantier de suivi (mesurer en alternance).
+- Suite : CI de la PR #9 en cours (`gh pr checks 9 --watch`) ; si verte → merge, réalignement HEAD.
+
+## 2026-11-20 05:50 — PR #9 vault-mount fusionnée (30d7a38), chantier vault-mount PR 1 clos
+
+- CI run 44676728561 verte (impact, rust ubuntu+windows, bench). H4 reproduite : cœur 0,99, ouverture
+  0,66, `h4.mount_read_ratio` **0,186** (non bloquante, ADR-0004). HEAD local réaligné sur origin/main
+  sans toucher au work tree ; branche `feat/vault-mount` supprimée (locale et distante).
+- Reste : `PASSATION-vault.md` modifié non commité ; `.claude/` non suivi.
+- Chantiers suivants : (1) « lecture séquentielle à travers FUSE » (vol unique dans `ChunkCache`,
+  `--threads 1`, réponse sans copie, mesure alternée référence/cœur) pour réarmer `blocking: true` ;
+  (2) adaptateur WinFsp (feature `winfsp`, PR 2).
+
+## 2026-11-20 08:52 — ADR-0005 : téléchargement segmenté conscient du format (cadrage, pas de code)
+
+- Nouveau : `docs/adr/0005-telechargement-segmente.md` (statut proposé) : crate `vault-fetch` (cœur agnostique
+  du transport) + `vault-fetch-http` (reqwest), `vault-fetch-s3` plus tard ; segments sur frontières de
+  morceaux, BLAKE3 par morceau à l'arrivée (seul le morceau corrompu est redemandé), reprise par bitmap
+  `.part`, trailer puis tables avant tout contenu (`Range: bytes=-256`), lecture/montage partiel avec
+  priorisation à la demande (V1), racine attendue `--root`. Hors périmètre : torrent, navigateur, upload.
+- Reuse-first : `trauma` / `swiftdl` / `prism` Learn, `reqwest` Adopt, `aria2` écarté (détail dans l'ADR et
+  `docs/produit/stack.md`). Cadrage : surface, écran desktop, matrice §7, D12, §9 mis à jour.
+- Prérequis code (PR séparée, après le chantier débit FUSE) : abstraction de source de morceaux dans
+  `vault-core` ; rien ne touche `vault-mount` ici.
+- Branche `docs/adr-0005-telechargement` créée par plumbing (HEAD et work tree intacts).
+
+## 2026-11-20 09:08 — Recherche : mécanique, histoire et goulots du téléchargement
+
+- Ajout de `docs/recherche/telechargement-histoire-goulots.md` (BLUF, mécanique TCP/HTTP/QUIC/CDN,
+  chronologie FTP → Xet, goulots, bornes, tendances 2025–2026, implications pour `vault-fetch`, 61 sources).
+- L'ADR-0005 renvoie à ce rapport dans sa section « Veille en ligne ».
+- Commit 6d63056 poussé sur `docs/adr-0005-telechargement` (PR #10), par-dessus la séance de vision produit (b9def6a).
+- Reste : relecture et fusion de la PR #10 par le propriétaire.
