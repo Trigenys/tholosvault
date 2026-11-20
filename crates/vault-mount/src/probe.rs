@@ -32,7 +32,7 @@ pub(crate) fn not_compiled() -> MountError {
 #[cfg(all(target_os = "linux", feature = "fuse"))]
 mod linux {
     use std::fs::OpenOptions;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
     use super::*;
 
@@ -62,16 +62,11 @@ mod linux {
             let p = PathBuf::from(p);
             return p.is_file().then_some(p);
         }
-        let dirs: Vec<PathBuf> = std::env::var_os("PATH")
+        let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
             .map(|p| std::env::split_paths(&p).collect())
             .unwrap_or_default();
-        dirs.iter()
-            .map(Path::new)
-            .chain([
-                Path::new("/sbin"),
-                Path::new("/usr/bin"),
-                Path::new("/usr/sbin"),
-            ])
+        dirs.extend(["/sbin", "/usr/bin", "/usr/sbin"].map(PathBuf::from));
+        dirs.into_iter()
             .flat_map(|d| [d.join("fusermount3"), d.join("fusermount")])
             .find(|p| p.is_file())
     }
