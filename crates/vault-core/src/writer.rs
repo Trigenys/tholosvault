@@ -180,18 +180,14 @@ pub fn pack_dir(src_dir: &Path, dst: &Path, opts: &PackOptions) -> Result<PackSu
     let hash_table_len = buf.len() as u64;
 
     // Parité (v1) : calculée sur tout ce qui précède, octets tels qu'écrits.
+    // La longueur de la section ne dépend que de la géométrie, ce qui permet
+    // d'encoder le trailer avant de la construire et d'en embarquer une copie.
     let protected_len = hash_table_off + hash_table_len;
-    let mut parity_len = 0u64;
-    if opts.parity.is_enabled() {
-        w.flush().map_err(|e| Error::io(dst, e))?;
-        let section = {
-            // Sûreté : fichier ouvert par nous seuls, aucune écriture pendant la vue.
-            let map = unsafe { memmap2::Mmap::map(w.get_ref()) }.map_err(|e| Error::io(dst, e))?;
-            parity::build_section(&map[..protected_len as usize], &opts.parity)?
-        };
-        w.write_all(&section).map_err(|e| Error::io(dst, e))?;
-        parity_len = section.len() as u64;
-    }
+    let parity_len = if opts.parity.is_enabled() {
+        parity::Geometry::new(protected_len, &opts.parity).section_len()
+    } else {
+        0
+    };
 
     let archive_root = merkle::merkle_root(&file_leaves);
     let trailer = Trailer {
@@ -208,6 +204,18 @@ pub fn pack_dir(src_dir: &Path, dst: &Path, opts: &PackOptions) -> Result<PackSu
         parity_len,
     }
     .encode();
+
+    if opts.parity.is_enabled() {
+        w.flush().map_err(|e| Error::io(dst, e))?;
+        let section = {
+            // Sûreté : fichier ouvert par nous seuls, aucune écriture pendant la vue.
+            let map = unsafe { memmap2::Mmap::map(w.get_ref()) }.map_err(|e| Error::io(dst, e))?;
+            parity::build_section(&map[..protected_len as usize], &opts.parity, Some(&trailer))?
+        };
+        debug_assert_eq!(section.len() as u64, parity_len);
+        w.write_all(&section).map_err(|e| Error::io(dst, e))?;
+    }
+
     for _ in 0..format::TRAILER_COPIES {
         w.write_all(&trailer).map_err(|e| Error::io(dst, e))?;
     }

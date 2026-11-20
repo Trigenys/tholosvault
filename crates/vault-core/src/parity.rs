@@ -31,10 +31,14 @@ use std::ops::Range;
 use reed_solomon_simd::ReedSolomonEncoder;
 
 use crate::error::{Error, Result};
-use crate::format::{u32_at, u64_at};
+use crate::format::{u32_at, u64_at, TRAILER_LEN};
 
 pub const PARITY_MAGIC: [u8; 8] = *b"THOLOSPR";
 pub const PARITY_HEADER_LEN: usize = 48;
+/// Disposition de section : 0 = en-tête puis tables ; 1 = une copie du trailer
+/// (128 o) s'intercale entre l'en-tête et les tables (balayage de secours).
+pub const LAYOUT_PLAIN: u8 = 0;
+pub const LAYOUT_TRAILER_COPY: u8 = 1;
 pub const DEFAULT_PERCENT: u8 = 5;
 pub const DEFAULT_SHARD_SIZE: u32 = 4096;
 pub const DEFAULT_GROUP_MAX: u32 = 1024;
@@ -108,6 +112,8 @@ pub struct Geometry {
     pub groups: u64,
     /// m : shards de parité par groupe.
     pub recovery_per_group: u32,
+    /// La section porte une copie du trailer après son en-tête.
+    pub trailer_copy: bool,
 }
 
 impl Geometry {
@@ -125,6 +131,7 @@ impl Geometry {
             data_shards,
             groups,
             recovery_per_group: recovery as u32,
+            trailer_copy: true,
         }
     }
 
@@ -157,8 +164,18 @@ impl Geometry {
         slot % self.groups
     }
 
-    pub fn section_len(&self) -> u64 {
+    /// Début des tables de CRC, relatif au début de la section.
+    pub fn tables_off(&self) -> u64 {
         PARITY_HEADER_LEN as u64
+            + if self.trailer_copy {
+                TRAILER_LEN as u64
+            } else {
+                0
+            }
+    }
+
+    pub fn section_len(&self) -> u64 {
+        self.tables_off()
             + 4 * self.data_shards
             + 4 * self.parity_shards()
             + self.parity_shards() * self.shard_size as u64
@@ -188,6 +205,11 @@ impl Geometry {
         b[12..16].copy_from_slice(&self.group_max.to_le_bytes());
         b[16..20].copy_from_slice(&self.recovery_per_group.to_le_bytes());
         b[20] = self.percent;
+        b[21] = if self.trailer_copy {
+            LAYOUT_TRAILER_COPY
+        } else {
+            LAYOUT_PLAIN
+        };
         b[24..32].copy_from_slice(&self.data_shards.to_le_bytes());
         b[32..40].copy_from_slice(&self.protected_len.to_le_bytes());
         b[40..44].copy_from_slice(&crc_tables.to_le_bytes());
@@ -235,7 +257,12 @@ impl<'a> ParitySection<'a> {
         if !opts.is_enabled() {
             return Err(malformed("budget nul"));
         }
-        let geometry = Geometry::new(protected_len, &opts);
+        let mut geometry = Geometry::new(protected_len, &opts);
+        geometry.trailer_copy = match h[21] {
+            LAYOUT_PLAIN => false,
+            LAYOUT_TRAILER_COPY => true,
+            other => return Err(malformed(format!("disposition {other} inconnue"))),
+        };
         if u64_at(h, 32) != protected_len
             || u64_at(h, 24) != geometry.data_shards
             || u32_at(h, 16) != geometry.recovery_per_group
@@ -251,14 +278,15 @@ impl<'a> ParitySection<'a> {
         }
         let n = geometry.data_shards as usize;
         let p = geometry.parity_shards() as usize;
-        let tables_end = PARITY_HEADER_LEN + 4 * n + 4 * p;
-        if crc32c::crc32c(&bytes[PARITY_HEADER_LEN..tables_end]) != u32_at(h, 40) {
+        let tables_off = geometry.tables_off() as usize;
+        let tables_end = tables_off + 4 * n + 4 * p;
+        if crc32c::crc32c(&bytes[tables_off..tables_end]) != u32_at(h, 40) {
             return Err(malformed("CRC des tables invalide"));
         }
         Ok(Self {
             geometry,
-            data_crc: &bytes[PARITY_HEADER_LEN..PARITY_HEADER_LEN + 4 * n],
-            parity_crc: &bytes[PARITY_HEADER_LEN + 4 * n..tables_end],
+            data_crc: &bytes[tables_off..tables_off + 4 * n],
+            parity_crc: &bytes[tables_off + 4 * n..tables_end],
             shards: &bytes[tables_end..],
         })
     }
@@ -278,11 +306,26 @@ impl<'a> ParitySection<'a> {
 
     /// Offset, relatif au début de la section, du shard de parité `slot`.
     pub fn parity_shard_offset(&self, slot: u64) -> u64 {
-        PARITY_HEADER_LEN as u64
+        self.geometry.tables_off()
             + 4 * self.geometry.data_shards
             + 4 * self.geometry.parity_shards()
             + slot * self.geometry.shard_size as u64
     }
+}
+
+/// Copie du trailer embarquée dans une section dont l'en-tête commence en
+/// `bytes[0]`, si la disposition la porte et que son en-tête est intact.
+/// Ne valide ni la géométrie ni les tables : seul le trailer est retourné.
+pub fn embedded_trailer_copy(bytes: &[u8]) -> Option<&[u8]> {
+    if bytes.len() < PARITY_HEADER_LEN + TRAILER_LEN || bytes[0..8] != PARITY_MAGIC {
+        return None;
+    }
+    let h = &bytes[..PARITY_HEADER_LEN];
+    if crc32c::crc32c(&h[..PARITY_HEADER_LEN - 4]) != u32_at(h, PARITY_HEADER_LEN - 4) {
+        return None;
+    }
+    (h[21] == LAYOUT_TRAILER_COPY)
+        .then(|| &bytes[PARITY_HEADER_LEN..PARITY_HEADER_LEN + TRAILER_LEN])
 }
 
 fn padded_shard<'a>(protected: &'a [u8], geom: &Geometry, shard: u64) -> Cow<'a, [u8]> {
@@ -394,20 +437,31 @@ fn encode_slice(
     Ok(out)
 }
 
-/// Construit la section de parité d'une zone protégée. Déterministe.
-pub fn build_section(protected: &[u8], opts: &ParityOptions) -> Result<Vec<u8>> {
+/// Construit la section de parité d'une zone protégée. Déterministe. Avec
+/// `trailer_copy`, la section embarque cette copie du trailer (disposition 1),
+/// retrouvable par balayage si les deux copies de queue sont détruites.
+pub fn build_section(
+    protected: &[u8],
+    opts: &ParityOptions,
+    trailer_copy: Option<&[u8; TRAILER_LEN]>,
+) -> Result<Vec<u8>> {
     opts.validate()?;
-    let geom = Geometry::new(protected.len() as u64, opts);
+    let mut geom = Geometry::new(protected.len() as u64, opts);
+    geom.trailer_copy = trailer_copy.is_some();
     let n = geom.data_shards as usize;
     let p = geom.parity_shards() as usize;
     let s = geom.shard_size as usize;
     let m = geom.recovery_per_group as usize;
 
-    // Disposition : en-tête, CRC des données, CRC de la parité, shards de parité.
-    let tables_off = PARITY_HEADER_LEN;
+    // Disposition : en-tête, [copie du trailer], CRC des données, CRC de la
+    // parité, shards de parité.
+    let mut out = vec![0u8; geom.section_len() as usize];
+    let tables_off = geom.tables_off() as usize;
+    if let Some(t) = trailer_copy {
+        out[PARITY_HEADER_LEN..tables_off].copy_from_slice(t);
+    }
     let parity_crc_off = tables_off + 4 * n;
     let shards_off = parity_crc_off + 4 * p;
-    let mut out = vec![0u8; geom.section_len() as usize];
 
     let data_crc = map_ordered(n as u64, |i| crc32c::crc32c(&protected[geom.data_range(i)]));
     for (i, c) in data_crc.iter().enumerate() {
@@ -700,10 +754,10 @@ mod tests {
             group_max: 8,
         };
         let data = protected(64 * 30 + 17);
-        let section = build_section(&data, &opts).unwrap();
+        let section = build_section(&data, &opts, None).unwrap();
         assert_eq!(
             section,
-            build_section(&data, &opts).unwrap(),
+            build_section(&data, &opts, None).unwrap(),
             "déterministe"
         );
         let sec = ParitySection::parse(&section, data.len() as u64).unwrap();
@@ -741,7 +795,7 @@ mod tests {
             group_max: 8,
         };
         let data = protected(64 * 8);
-        let section = build_section(&data, &opts).unwrap();
+        let section = build_section(&data, &opts, None).unwrap();
         let sec = ParitySection::parse(&section, data.len() as u64).unwrap();
         let ranges: Vec<Range<u64>> = std::iter::once(70..200).collect();
         let damage = scan(&data, Some(&sec), &ranges, 0);
@@ -756,7 +810,7 @@ mod tests {
             group_max: 1024,
         };
         let data = protected(64 * 20);
-        let section = build_section(&data, &opts).unwrap();
+        let section = build_section(&data, &opts, None).unwrap();
         let sec = ParitySection::parse(&section, data.len() as u64).unwrap();
         let mut hurt = data.clone();
         for b in &mut hurt[..64 * 5] {
@@ -772,9 +826,27 @@ mod tests {
     }
 
     #[test]
+    fn trailer_copy_layout_roundtrips_and_plain_layout_is_accepted() {
+        let data = protected(5000);
+        let trailer = [7u8; TRAILER_LEN];
+        let with = build_section(&data, &ParityOptions::default(), Some(&trailer)).unwrap();
+        let without = build_section(&data, &ParityOptions::default(), None).unwrap();
+        assert_eq!(with.len(), without.len() + TRAILER_LEN);
+        assert_eq!(embedded_trailer_copy(&with), Some(&trailer[..]));
+        assert_eq!(embedded_trailer_copy(&without), None);
+        let a = ParitySection::parse(&with, 5000).unwrap();
+        let b = ParitySection::parse(&without, 5000).unwrap();
+        assert!(a.geometry.trailer_copy && !b.geometry.trailer_copy);
+        assert_eq!(a.parity_shard(0), b.parity_shard(0));
+        let mut hurt = with.clone();
+        hurt[PARITY_HEADER_LEN - 4] ^= 1; // CRC d'en-tête faux : plus de copie exploitable
+        assert_eq!(embedded_trailer_copy(&hurt), None);
+    }
+
+    #[test]
     fn corrupted_section_is_rejected() {
         let data = protected(1000);
-        let mut section = build_section(&data, &ParityOptions::default()).unwrap();
+        let mut section = build_section(&data, &ParityOptions::default(), None).unwrap();
         section[PARITY_HEADER_LEN + 1] ^= 1;
         assert!(ParitySection::parse(&section, 1000).is_err());
         assert!(ParitySection::parse(&section, 999).is_err());

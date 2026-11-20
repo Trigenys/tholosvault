@@ -141,7 +141,8 @@ fn trailer_replica_survives_last_copy_corruption() {
     let src = tmp.path().join("src");
     fs::create_dir(&src).unwrap();
     fixture(&src);
-    let (dst, _) = pack(&src, "a.tholos");
+    // Sans parité : la réplique de queue est la seule redondance du trailer.
+    let (dst, _) = pack_with(&src, "a.tholos", &v0());
 
     let mut bytes = fs::read(&dst).unwrap();
     let n = bytes.len();
@@ -153,7 +154,7 @@ fn trailer_replica_survives_last_copy_corruption() {
     assert!(ar.verify().is_ok());
     drop(ar); // Windows : le mmap verrouille le fichier.
 
-    // Les deux copies détruites : erreur explicite.
+    // Les deux copies détruites, sans parité : erreur explicite.
     for b in &mut bytes[n - 2 * TRAILER_LEN..] {
         *b = 0xff;
     }

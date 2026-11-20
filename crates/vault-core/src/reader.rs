@@ -147,8 +147,7 @@ impl Archive {
     fn from_mmap(path: PathBuf, map: Mmap) -> Result<Self> {
         check_min_len(&map)?;
         let header = Header::decode(&map[..HEADER_LEN])?;
-        let (trailer, bad_trailer_copies) = read_trailers(&map);
-        let trailer = trailer.ok_or(Error::NoValidTrailer)?;
+        let (trailer, bad_trailer_copies) = locate_trailer(&map)?;
         let tables = parse_tables(&map, &trailer)?;
         Ok(Self {
             path,
@@ -345,8 +344,7 @@ impl Archive {
 pub fn scan_file(path: &Path) -> Result<Damage> {
     let map = map_file(path)?;
     check_min_len(&map)?;
-    let (trailer, bad_copies) = read_trailers(&map);
-    let trailer = trailer.ok_or(Error::NoValidTrailer)?;
+    let (trailer, bad_copies) = locate_trailer(&map)?;
     let ranges = bad_chunk_ranges(&map, &trailer);
     Ok(scan_map(&map, &trailer, &ranges, bad_copies))
 }
@@ -358,8 +356,7 @@ pub fn repair_file(path: &Path) -> Result<RepairReport> {
     let (damage, patches) = {
         let map = map_file(path)?;
         check_min_len(&map)?;
-        let (trailer, bad_copies) = read_trailers(&map);
-        let trailer = trailer.ok_or(Error::NoValidTrailer)?;
+        let (trailer, bad_copies) = locate_trailer(&map)?;
         let ranges = bad_chunk_ranges(&map, &trailer);
         let damage = scan_map(&map, &trailer, &ranges, bad_copies);
         if !damage.repairable {
@@ -564,6 +561,45 @@ fn parse_tables(map: &[u8], trailer: &Trailer) -> Result<Tables> {
 }
 
 /// Trailer valide (dernière copie d'abord) et nombre de copies illisibles.
+/// Trailer de l'archive et nombre de copies de queue illisibles. Quand les
+/// deux copies sont détruites, balaie la fin du fichier à la recherche de la
+/// section de parité et prend la copie qu'elle embarque (disposition 1).
+fn locate_trailer(map: &[u8]) -> Result<(Trailer, u8)> {
+    match read_trailers(map) {
+        (Some(t), bad) => Ok((t, bad)),
+        (None, bad) => recover_trailer_from_parity(map)
+            .map(|t| (t, bad))
+            .ok_or(Error::NoValidTrailer),
+    }
+}
+
+/// Balayage de secours : cherche en remontant depuis la fin un en-tête de
+/// section de parité intact dont la copie de trailer désigne exactement cette
+/// position et cette longueur de fichier. Coût proportionnel à la taille de la
+/// section pour une archive saine ; pas de faux positif sans collision CRC.
+fn recover_trailer_from_parity(map: &[u8]) -> Option<Trailer> {
+    let len = map.len();
+    let body = &map[..len - TRAILER_LEN * TRAILER_COPIES];
+    let mut search_end = body.len();
+    while let Some(off) = body[..search_end]
+        .windows(parity::PARITY_MAGIC.len())
+        .rposition(|w| w == parity::PARITY_MAGIC)
+    {
+        search_end = off + parity::PARITY_MAGIC.len() - 1;
+        let Some(copy) = parity::embedded_trailer_copy(&body[off..]) else {
+            continue;
+        };
+        let Some(t) = Trailer::decode(copy) else {
+            continue;
+        };
+        let expected_end = t.parity_off().checked_add(t.parity_len);
+        if t.parity_off() == off as u64 && expected_end == Some(body.len() as u64) {
+            return Some(t);
+        }
+    }
+    None
+}
+
 fn read_trailers(map: &[u8]) -> (Option<Trailer>, u8) {
     let len = map.len();
     let mut found = None;

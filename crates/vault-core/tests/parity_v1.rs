@@ -241,12 +241,72 @@ fn destroyed_trailer_copy_is_restored() {
     assert_eq!(r.patched_shards, 0);
     assert_eq!(fs::read(&dst).unwrap(), original);
 
-    // Les deux copies détruites : non réparable, rien n'est écrit.
+    // Les deux copies détruites : la copie embarquée dans la section de parité
+    // est retrouvée par balayage, l'archive reste lisible et les deux copies
+    // de queue sont restaurées.
     bytes[n - 2 * TRAILER_LEN..].fill(0xff);
     fs::write(&dst, &bytes).unwrap();
+    let ar = Archive::open(&dst).unwrap();
+    assert_eq!(ar.read_file("z/profond/petit.dat").unwrap(), b"abc");
+    let d = ar.verify().damage.unwrap();
+    assert_eq!(d.bad_trailer_copies, 2);
+    assert!(d.repairable && d.bad_data_shards.is_empty());
+    drop(ar);
+    let r = repair_file(&dst).unwrap();
+    assert_eq!((r.trailer_copies_restored, r.patched_shards), (2, 0));
+    assert_eq!(fs::read(&dst).unwrap(), original);
+}
+
+#[test]
+fn destroyed_trailers_and_parity_header_are_unrecoverable_without_writing() {
+    let (_tmp, dst, original, protected_len) = archive(5);
+    let mut bytes = original.clone();
+    let n = bytes.len();
+    bytes[n - 2 * TRAILER_LEN..].fill(0xff);
+    bytes[protected_len as usize + 44] ^= 1; // CRC de l'en-tête de la section
+    fs::write(&dst, &bytes).unwrap();
+    assert!(matches!(Archive::open(&dst), Err(Error::NoValidTrailer)));
     assert!(matches!(scan_file(&dst), Err(Error::NoValidTrailer)));
     assert!(matches!(repair_file(&dst), Err(Error::NoValidTrailer)));
     assert_eq!(fs::read(&dst).unwrap(), bytes);
+    assert!(!tmp_path(&dst).exists());
+}
+
+#[test]
+fn destroyed_trailers_without_parity_are_unrecoverable() {
+    let (_tmp, dst, original, _) = archive(0);
+    let mut bytes = original;
+    let n = bytes.len();
+    bytes[n - 2 * TRAILER_LEN..].fill(0);
+    fs::write(&dst, &bytes).unwrap();
+    assert!(matches!(Archive::open(&dst), Err(Error::NoValidTrailer)));
+}
+
+#[test]
+fn trailer_scan_ignores_stale_magic_inside_data() {
+    // Un faux « THOLOSPR » dans la zone protégée (données utilisateur) ne doit
+    // pas tromper le balayage : seul l'en-tête cohérent avec la fin du fichier compte.
+    let tmp = tempfile::tempdir().unwrap();
+    let src = tmp.path().join("src");
+    fs::create_dir(&src).unwrap();
+    fixture(&src);
+    let mut lure = b"THOLOSPR".repeat(2000);
+    lure.extend(pseudo_random(100_000, 9));
+    fs::write(src.join("leurre.bin"), &lure).unwrap();
+    let (dst, _) = pack_with(&src, "l.tholos", &opts(5));
+    let original = fs::read(&dst).unwrap();
+    let mut bytes = original.clone();
+    let n = bytes.len();
+    bytes[n - 2 * TRAILER_LEN..].fill(0xff);
+    fs::write(&dst, &bytes).unwrap();
+    assert_eq!(
+        Archive::open(&dst)
+            .unwrap()
+            .read_file("leurre.bin")
+            .unwrap(),
+        lure
+    );
+    assert_repaired(&dst, &original, Some(0));
 }
 
 #[test]
