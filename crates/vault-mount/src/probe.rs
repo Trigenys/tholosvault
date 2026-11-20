@@ -17,6 +17,7 @@ pub fn probe() -> Result<crate::Backend, MountError> {
     }
 }
 
+#[cfg(not(all(target_os = "linux", feature = "fuse")))]
 pub(crate) fn not_compiled() -> MountError {
     MountError::NotCompiled {
         hint: if cfg!(windows) {

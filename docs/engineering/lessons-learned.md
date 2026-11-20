@@ -106,3 +106,15 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
 - **Suivi 2026-11-17** : dénominateur recalé sur BLAKE3 du même buffer protégé, mesuré au même instant
   (`h5.blake3_s_per_gb` rapporté) : rapport 1,82–2,06 sur 5 exécutions à 4 fils (± 6 %). Seuil **réarmé**
   (`blocking: true`, borne ≤ 3 inchangée) ; dérogation RAIDER (D) de l'ADR-0003 levée.
+
+### B-002 — H4 : débit de lecture à travers le montage FUSE (2026-11-20)
+- **Mesure** (première exécution CI avec pilote, `ubuntu-latest`, 4 vCPU) : cœur 0,99 (seuil ≥ 0,9),
+  contenu exact, ouverture 0,69 × BLAKE3/MiB (seuil ≤ 1), mais `h4.mount_read_ratio` **0,18** pour un seuil
+  ≥ 0,7 : le montage lit 5,5 × plus lentement que le décodeur.
+- **Décision** : [ADR-0004](../adr/0004-debit-lecture-montage-fuse.md) — métrique non bloquante avec renvoi
+  d'ADR, chantier « lecture séquentielle à travers FUSE » (décodage à vol unique dans `ChunkCache`, mesure
+  `--threads 1`, réponse sans copie) pour réarmer le seuil.
+- **Leçon** : un cœur mesuré « sans perte » en requêtes de la taille du noyau ne prouve rien sur le
+  montage : la concurrence du noyau (lecture anticipée, plusieurs fils) change le profil d'accès. Mesurer
+  le cœur **sous la même concurrence** que le pilote avant d'annoncer un ratio ; un cache sans vol unique
+  multiplie le travail au lieu de l'économiser dès que deux requêtes manquent le même morceau.

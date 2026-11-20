@@ -90,7 +90,8 @@
         "h4.mount_read_ratio": {
           "unit": "ratio",
           "threshold": { "op": ">=", "value": 0.7 },
-          "blocking": true,
+          "blocking": false,
+          "adr": "docs/adr/0004-debit-lecture-montage-fuse.md",
           "requires": "mount",
           "source": "lecture séquentielle de vault-core ÷ lecture std::fs du montage (médiane de 3 passes)"
         },
