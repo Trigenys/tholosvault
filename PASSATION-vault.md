@@ -393,3 +393,12 @@
   `root_mismatch_rejected` 1, `aggregate_throughput_ratio` 0,31 (non bloquant, consigné dans l'ADR-0008 avec
   les causes à mesurer ; seuil 0,9 inchangé). Sortie du banc : succès.
 - Suite : commit, push, PR vers `main`.
+
+## 2026-11-20 13:04 — PR #13 ouverte
+
+- Commit `325d963` poussé sur `claude/musing-bose-8702db`, PR https://github.com/Trigenys/tholosvault/pull/13
+  vers `main` (sections Objet / Changements / Reuse-first / RAIDER review / Vérification locale).
+- CI impact-aware déclenchée (gates `rust` ubuntu + windows, `bench` profil ci) : en cours à l'ouverture,
+  résultat à relever dans la PR.
+- Hors périmètre, à ouvrir ensuite : lecture / montage d'une archive incomplète (H9b, H9d) ; verdict de thèse
+  du banc qui marque « refuted » une thèse dont seule une métrique non bloquante est hors cible.
