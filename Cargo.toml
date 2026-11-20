@@ -1,6 +1,13 @@
 [workspace]
 resolver = "2"
-members = ["crates/vault-core", "crates/vault-cli", "crates/vault-mount", "bench"]
+members = [
+    "crates/vault-core",
+    "crates/vault-cli",
+    "crates/vault-mount",
+    "crates/vault-fetch",
+    "crates/vault-fetch-http",
+    "bench",
+]
 
 [workspace.package]
 edition = "2021"
@@ -11,6 +18,8 @@ rust-version = "1.80"
 [workspace.dependencies]
 vault-core = { path = "crates/vault-core", version = "0.1.0" }
 vault-mount = { path = "crates/vault-mount", version = "0.1.0", default-features = false }
+vault-fetch = { path = "crates/vault-fetch", version = "0.1.0" }
+vault-fetch-http = { path = "crates/vault-fetch-http", version = "0.1.0" }
 ctrlc = "3.5"
 fastcdc = "5.0"
 blake3 = "1.8"
@@ -25,6 +34,15 @@ reed-solomon-simd = "3.1"
 rayon = "1.10"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+tokio = { version = "1.54", default-features = false }
+async-trait = "0.1"
+bytes = "1"
+futures-util = { version = "0.3", default-features = false }
+# Fournisseur `ring` (pur Rust/asm pré-assemblé) : pas de cmake ni de NASM requis.
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "http2", "stream"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+axum = "0.8"
+url = "2"
 
 [profile.release]
 lto = "thin"

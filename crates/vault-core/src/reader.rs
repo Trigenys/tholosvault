@@ -120,11 +120,88 @@ impl ChunkStarts {
     }
 }
 
-struct Tables {
-    chunks: Vec<ChunkEntry>,
-    files: Vec<FileEntry>,
+/// Tables d'une archive analysées à partir d'octets déjà en mémoire : le
+/// fichier local (`Archive::open`) ou les sections reçues d'une source
+/// distante (`vault-fetch`). Toute la logique de format reste ici.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArchiveTables {
+    pub chunks: Vec<ChunkEntry>,
+    pub files: Vec<FileEntry>,
     /// (hash, index) trié par hash.
-    hash_table: Vec<(Hash, u32)>,
+    pub hash_table: Vec<(Hash, u32)>,
+}
+
+impl ArchiveTables {
+    /// Racine d'archive recalculée à partir des entrées de fichiers (feuilles
+    /// `file_leaf`) ; égale à `trailer.archive_root` pour des tables intègres.
+    pub fn archive_root(&self) -> Hash {
+        let leaves: Vec<Hash> = self
+            .files
+            .iter()
+            .map(|f| merkle::file_leaf(&f.path, f.size, &f.root))
+            .collect();
+        merkle::merkle_root(&leaves)
+    }
+}
+
+/// Trailer lu dans les `TRAILER_LEN × TRAILER_COPIES` derniers octets d'une
+/// archive (par exemple obtenus par `Range: bytes=-256`). Renvoie le trailer
+/// et le nombre de copies illisibles ; `NoValidTrailer` si aucune ne l'est.
+pub fn read_trailer_tail(tail: &[u8]) -> Result<(Trailer, u8)> {
+    if tail.len() != TRAILER_LEN * TRAILER_COPIES {
+        return Err(Error::TooShort {
+            len: tail.len() as u64,
+        });
+    }
+    match read_trailers(tail) {
+        (Some(t), bad) => Ok((t, bad)),
+        (None, _) => Err(Error::NoValidTrailer),
+    }
+}
+
+/// Analyse les trois tables à partir de leurs octets bruts (index des
+/// morceaux, table des fichiers, table de hachage), avec les mêmes contrôles
+/// de cohérence que l'ouverture d'un fichier local.
+pub fn parse_archive_tables(
+    trailer: &Trailer,
+    chunk_bytes: &[u8],
+    file_bytes: &[u8],
+    hash_bytes: &[u8],
+) -> Result<ArchiveTables> {
+    let chunks = parse_chunks(chunk_bytes, trailer.chunk_count)?;
+    let files = parse_files(file_bytes, trailer.file_count, chunks.len())?;
+    let hash_table = parse_hash_table(hash_bytes, chunks.len())?;
+    check_tables(trailer, &chunks, &files)?;
+    Ok(ArchiveTables {
+        chunks,
+        files,
+        hash_table,
+    })
+}
+
+/// Décompresse une frame reçue pour le morceau `index` et compare son
+/// hachage à l'entrée d'index ; `ChunkMismatch` si le contenu ne correspond pas.
+pub fn verify_chunk_frame(c: &ChunkEntry, index: u32, frame: &[u8]) -> Result<()> {
+    if frame.len() != c.compressed_len as usize {
+        return Err(Error::MalformedSection {
+            section: "index morceaux",
+            detail: format!(
+                "morceau {index} : frame de {} octets pour {} attendus",
+                frame.len(),
+                c.compressed_len
+            ),
+        });
+    }
+    let data = codec::decompress(frame, c.len as usize, index)?;
+    let actual = merkle::chunk_id(&data);
+    if actual != c.hash {
+        return Err(Error::ChunkMismatch {
+            index,
+            expected: merkle::to_hex(&c.hash),
+            actual: merkle::to_hex(&actual),
+        });
+    }
+    Ok(())
 }
 
 pub struct Archive {
@@ -538,31 +615,29 @@ fn read_chunk_raw(map: &[u8], c: &ChunkEntry, index: u32) -> Result<Vec<u8>> {
     Ok(data)
 }
 
-fn parse_tables(map: &[u8], trailer: &Trailer) -> Result<Tables> {
+fn parse_tables(map: &[u8], trailer: &Trailer) -> Result<ArchiveTables> {
     let chunk_bytes = section(
         map,
         "index morceaux",
         trailer.chunk_index_off,
         trailer.chunk_index_len,
     )?;
-    let chunks = parse_chunks(chunk_bytes, trailer.chunk_count)?;
-
     let file_bytes = section(
         map,
         "table fichiers",
         trailer.file_table_off,
         trailer.file_table_len,
     )?;
-    let files = parse_files(file_bytes, trailer.file_count, chunks.len())?;
-
     let hash_bytes = section(
         map,
         "table hachage",
         trailer.hash_table_off,
         trailer.hash_table_len,
     )?;
-    let hash_table = parse_hash_table(hash_bytes, chunks.len())?;
+    parse_archive_tables(trailer, chunk_bytes, file_bytes, hash_bytes)
+}
 
+fn check_tables(trailer: &Trailer, chunks: &[ChunkEntry], files: &[FileEntry]) -> Result<()> {
     for (i, f) in files.iter().enumerate() {
         let total: u64 = f
             .chunks
@@ -585,11 +660,7 @@ fn parse_tables(map: &[u8], trailer: &Trailer) -> Result<Tables> {
             });
         }
     }
-    Ok(Tables {
-        chunks,
-        files,
-        hash_table,
-    })
+    Ok(())
 }
 
 /// Trailer valide (dernière copie d'abord) et nombre de copies illisibles.

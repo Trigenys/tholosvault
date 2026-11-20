@@ -1,7 +1,7 @@
 [package]
 name = "vault-bench"
 version = "0.1.0"
-description = "Bench public des thèses H1–H8 : corpus synthétique, protocole, seuils bloquants."
+description = "Bench public des thèses H1–H9 : corpus synthétique, protocole, seuils bloquants."
 publish = false
 edition.workspace = true
 license.workspace = true
@@ -16,6 +16,9 @@ path = "src/main.rs"
 [dependencies]
 vault-core.workspace = true
 vault-mount = { workspace = true, features = ["fuse"] }
+vault-fetch.workspace = true
+vault-fetch-http = { workspace = true, features = ["test-server"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
 zstd.workspace = true
 blake3.workspace = true
 clap.workspace = true
