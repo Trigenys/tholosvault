@@ -202,12 +202,16 @@ fn corrupt_chunk_is_reported_not_served() {
 
 #[test]
 fn probe_without_driver_is_explicit() {
-    // Hors Linux+fuse, la sonde dit pourquoi et comment y remédier.
+    // Sans adaptateur compilé, la sonde dit pourquoi et comment y remédier.
     let probe = vault_mount::probe();
     if cfg!(all(target_os = "linux", feature = "fuse")) {
         // Pilote compilé : la sonde réussit, ou dit précisément ce qui manque.
         if let Err(e) = &probe {
             assert!(e.to_string().contains("fusermount"), "{e}");
+        }
+    } else if cfg!(all(windows, feature = "winfsp")) {
+        if let Err(e) = &probe {
+            assert!(e.to_string().contains("winfsp.dev"), "{e}");
         }
     } else {
         let e = probe.expect_err("pas d'adaptateur compilé ici");

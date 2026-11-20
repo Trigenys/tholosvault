@@ -44,6 +44,12 @@ jobs:
       - name: fuse3 (montage réel de vault-mount)
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update -q && sudo apt-get install -y -q fuse3
+      - name: tholos démarre sans le pilote WinFsp (liaison différée)
+        if: matrix.os == 'windows-latest'
+        run: cargo run -p vault-cli --quiet -- --version
+      - name: WinFsp (montage réel de vault-mount)
+        if: matrix.os == 'windows-latest'
+        run: choco install winfsp --version=2.2.26323 -y --no-progress
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace --quiet
@@ -56,13 +62,20 @@ jobs:
       - name: vault-mount, montage FUSE réel
         if: matrix.os == 'ubuntu-latest'
         run: cargo test -p vault-mount --test fuse_mount --quiet -- --ignored
+      - name: vault-mount, montage WinFsp réel
+        if: matrix.os == 'windows-latest'
+        run: cargo test -p vault-mount --features winfsp --test winfsp_mount --quiet -- --ignored
       - run: cargo build --workspace --release --quiet
 
   bench:
-    name: bench (profil ci)
+    name: bench (profil ci, ${{ matrix.os }})
     needs: impact
     if: ${{ contains(fromJSON(needs.impact.outputs.gates), 'bench') }}
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -73,13 +86,18 @@ jobs:
         with:
           key: bench
       - name: fuse3 (H4 mesure un montage réel)
+        if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update -q && sudo apt-get install -y -q fuse3
+      - name: WinFsp (H4 mesure un montage réel)
+        if: matrix.os == 'windows-latest'
+        run: choco install winfsp --version=2.2.26323 -y --no-progress
       - name: Thèses H1–H8, profil ci (seuils bloquants, montage exigé)
+        shell: bash
         run: cargo run -p vault-bench --release --locked --quiet -- --profile ci --require-env mount --out bench/results --summary-md "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: bench-ci
+          name: bench-ci-${{ matrix.os }}
           path: |
             bench/results/ci.json
             bench/results/ci.csv

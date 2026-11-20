@@ -71,6 +71,18 @@ pub struct MetricSpec {
     /// thèse devient `incomplete`, jamais `supported`.
     #[serde(default)]
     pub requires: Option<String>,
+    /// Systèmes (`std::env::consts::OS`) où le seuil reste déclaré et évalué
+    /// mais ne bloque pas, `adr` obligatoire : une réfutation propre à un hôte
+    /// se consigne sans assouplir le seuil ailleurs.
+    #[serde(default)]
+    pub non_blocking_on: Vec<String>,
+}
+
+impl MetricSpec {
+    /// Le seuil bloque-t-il sur cet hôte ?
+    pub fn blocking_on(&self, os: &str) -> bool {
+        self.blocking && !self.non_blocking_on.iter().any(|o| o == os)
+    }
 }
 
 /// Capacités d'hôte qu'une métrique peut exiger.
@@ -79,6 +91,8 @@ pub const CAPABILITIES: [&str; 4] = ["mount", "fuse", "winfsp", "curl"];
 /// Capacités détectées sur l'hôte, avec la raison de chaque absence.
 #[derive(Debug, Default, Clone)]
 pub struct Environment {
+    /// `std::env::consts::OS` de l'hôte (vide dans les tests).
+    pub os: String,
     pub available: BTreeSet<String>,
     pub missing: BTreeMap<String, String>,
 }
@@ -240,6 +254,12 @@ pub struct Report {
 pub fn load_config(path: &Path) -> Result<Config> {
     let text = fs::read_to_string(path).with_context(|| path.display().to_string())?;
     let cfg: Config = serde_json::from_str(&text).context("config.json invalide")?;
+    validate(cfg)
+}
+
+/// Contrôle le contrat déclaré : schéma, thèses présentes, cohérence
+/// seuil / bloquant / ADR / capacités.
+pub fn validate(cfg: Config) -> Result<Config> {
     if cfg.schema != CONFIG_SCHEMA {
         bail!("schéma de configuration inattendu : {}", cfg.schema);
     }
@@ -255,6 +275,9 @@ pub fn load_config(path: &Path) -> Result<Config> {
             }
             if !m.blocking && m.threshold.is_some() && m.adr.is_none() {
                 bail!("{tid}/{mid} : seuil non bloquant sans champ `adr` (ADR-0003)");
+            }
+            if !m.non_blocking_on.is_empty() && m.adr.is_none() {
+                bail!("{tid}/{mid} : `non_blocking_on` sans champ `adr`");
             }
             if let Some(req) = &m.requires {
                 if !CAPABILITIES.contains(&req.as_str()) {
@@ -303,7 +326,7 @@ pub fn evaluate(
                         p99: None,
                         samples: 0,
                         threshold: ms.threshold.clone(),
-                        blocking: ms.blocking,
+                        blocking: ms.blocking_on(&env.os),
                         pass: None,
                         adr: ms.adr.clone(),
                         source: ms.source.clone(),
@@ -330,7 +353,7 @@ pub fn evaluate(
                 p99: m.p99,
                 samples: m.samples,
                 threshold: ms.threshold.clone(),
-                blocking: ms.blocking,
+                blocking: ms.blocking_on(&env.os),
                 pass,
                 adr: ms.adr.clone(),
                 source: ms.source.clone(),
@@ -600,6 +623,58 @@ mod tests {
             .push(Measured::scalar("h4.mount_content_ok", 1.0));
         let only = ["H4".to_string()];
         assert!(evaluate(&cfg, "ci", &produced, &only, &Environment::default()).is_err());
+    }
+
+    fn h4_with_mount(open_ratio: f64) -> BTreeMap<String, Vec<Measured>> {
+        let mut p = h4_core_only();
+        p.get_mut("H4").unwrap().extend([
+            Measured::scalar("h4.mount_content_ok", 1.0),
+            Measured::scalar("h4.mount_read_ratio", 0.9),
+            Measured::scalar("h4.mount_open_ns", 1.0),
+            Measured::scalar("h4.mount_open_p99_over_blake3_mib", open_ratio),
+        ]);
+        p
+    }
+
+    #[test]
+    fn os_exemption_keeps_threshold_and_blocks_elsewhere() {
+        // ADR-0007 : `h4.mount_open_p99_over_blake3_mib` ne bloque pas sous
+        // Windows, mais le seuil reste évalué (✗ visible) et bloque ailleurs.
+        let cfg = shipped();
+        let only = ["H4".to_string()];
+        let exempt = cfg.theses["H4"].metrics["h4.mount_open_p99_over_blake3_mib"]
+            .non_blocking_on
+            .clone();
+        assert_eq!(exempt, vec!["windows".to_string()]);
+        let mut env = with_mount();
+        env.os = "windows".into();
+        let out = evaluate(&cfg, "ci", &h4_with_mount(4.0), &only, &env).unwrap();
+        let m = out[0]
+            .metrics
+            .iter()
+            .find(|m| m.id == "h4.mount_open_p99_over_blake3_mib")
+            .unwrap();
+        assert_eq!(m.pass, Some(false));
+        assert!(!m.blocking && m.adr.is_some());
+        assert!(blocking_failures(&out).is_empty());
+        assert_eq!(out[0].verdict, "refuted");
+        env.os = "linux".into();
+        let out = evaluate(&cfg, "ci", &h4_with_mount(4.0), &only, &env).unwrap();
+        assert_eq!(blocking_failures(&out).len(), 1, "{out:?}");
+    }
+
+    #[test]
+    fn os_exemption_requires_an_adr() {
+        let mut cfg = shipped();
+        let m = cfg
+            .theses
+            .get_mut("H4")
+            .unwrap()
+            .metrics
+            .get_mut("h4.mount_open_p99_over_blake3_mib")
+            .unwrap();
+        m.adr = None;
+        assert!(validate(cfg).is_err());
     }
 
     #[test]

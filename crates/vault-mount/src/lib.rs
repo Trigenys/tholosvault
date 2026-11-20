@@ -3,8 +3,8 @@
 //! Le cœur ([`VaultFs`]) est un système de fichiers logique, indépendant de
 //! l'OS : inœuds, attributs, parcours de répertoire, lecture par plage. Il se
 //! teste sans pilote. Les adaptateurs natifs (FUSE derrière la feature `fuse`,
-//! WinFsp à venir) ne font que traduire les appels du noyau vers ce cœur et
-//! les erreurs vers les codes natifs.
+//! WinFsp derrière la feature `winfsp`) ne font que traduire les appels du
+//! noyau vers ce cœur et les erreurs vers les codes natifs.
 //!
 //! Toute la logique de format reste dans `vault-core` : ce crate ne lit pas un
 //! octet du format lui-même.
@@ -21,6 +21,8 @@ mod error;
 mod fuse;
 mod probe;
 mod tree;
+#[cfg(all(windows, feature = "winfsp"))]
+mod winfsp;
 
 pub use error::{Backend, FsError, MountError};
 pub use probe::probe;
@@ -274,6 +276,8 @@ mod handle {
     pub(super) enum Inner {
         #[cfg(all(target_os = "linux", feature = "fuse"))]
         Fuse(Option<fuser::BackgroundSession>),
+        #[cfg(all(windows, feature = "winfsp"))]
+        WinFsp(Option<crate::winfsp::Session>),
         #[allow(dead_code)]
         Inert,
     }
@@ -291,6 +295,8 @@ impl MountHandle {
         match &self.inner {
             #[cfg(all(target_os = "linux", feature = "fuse"))]
             handle::Inner::Fuse(s) => s.as_ref().is_some_and(|s| !s.guard.is_finished()),
+            #[cfg(all(windows, feature = "winfsp"))]
+            handle::Inner::WinFsp(s) => s.as_ref().is_some_and(|s| s.is_alive()),
             handle::Inner::Inert => false,
         }
     }
@@ -305,6 +311,13 @@ impl MountHandle {
                 }),
                 None => Ok(()),
             },
+            #[cfg(all(windows, feature = "winfsp"))]
+            handle::Inner::WinFsp(s) => {
+                if let Some(s) = s.take() {
+                    s.unmount();
+                }
+                Ok(())
+            }
             handle::Inner::Inert => Ok(()),
         }
     }
@@ -329,7 +342,17 @@ pub fn mount(
             fs,
         })
     }
-    #[cfg(not(all(target_os = "linux", feature = "fuse")))]
+    #[cfg(all(windows, feature = "winfsp"))]
+    {
+        let session = winfsp::spawn(fs, mountpoint, opts)?;
+        Ok(MountHandle {
+            inner: handle::Inner::WinFsp(Some(session)),
+        })
+    }
+    #[cfg(not(any(
+        all(target_os = "linux", feature = "fuse"),
+        all(windows, feature = "winfsp")
+    )))]
     {
         let _ = (fs, mountpoint, opts);
         Err(probe::not_compiled())
