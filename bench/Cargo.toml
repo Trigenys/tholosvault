@@ -8,6 +8,12 @@ license.workspace = true
 repository.workspace = true
 # vault-mount (fuser 0.18) impose 1.85 ; voir crates/vault-mount/README.md.
 rust-version = "1.85"
+build = "build.rs"
+
+# Comme vault-cli : chaque adaptateur est inerte hors de son OS.
+[features]
+default = ["winfsp"]
+winfsp = ["vault-mount/winfsp", "dep:winfsp"]
 
 [[bin]]
 name = "tholos-bench"
@@ -23,3 +29,7 @@ anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
+
+# Émet /DELAYLOAD:winfsp-x64.dll pour le binaire `tholos-bench` (voir build.rs).
+[target.'cfg(windows)'.build-dependencies]
+winfsp = { version = "0.13", optional = true, default-features = false, features = ["delayload"] }

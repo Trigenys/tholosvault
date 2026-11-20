@@ -339,3 +339,50 @@
 - L'ADR-0005 renvoie à ce rapport dans sa section « Veille en ligne ».
 - Commit 6d63056 poussé sur `docs/adr-0005-telechargement` (PR #10), par-dessus la séance de vision produit (b9def6a).
 - Reste : relecture et fusion de la PR #10 par le propriétaire.
+
+## 2026-11-20 11:07 — vault-mount : adaptateur WinFsp (feature `winfsp`)
+- Worktree `.claude/worktrees/winfsp`, branche `feat/vault-mount-winfsp` (base 30d7a38). Rien de commité.
+- Fait : `crates/vault-mount/src/winfsp.rs` (FileSystemContext → VaultFs, FsError → NTSTATUS, volume RO
+  insensible à la casse, racine sans `.`/`..`), `probe.rs` (registre `HKLM\SOFTWARE\WinFsp` → LoadLibraryW
+  → `winfsp_init`), `build.rs` (delayload), `lib.rs` (branche WinFsp de `mount`/`MountHandle`),
+  `tests/winfsp_mount.rs` (`#[ignore]`), vault-cli `default = ["fuse","winfsp"]`, bench (feature + capacité
+  `winfsp` manquante), CI windows (choco winfsp 2.2.26323, test ignoré, bench matrice ubuntu/windows,
+  artefact `bench-ci-<os>`), README crate / bench, stack.md.
+- Verrou : compilation `--features winfsp` exige libclang (bindgen) ; installation LLVM + WinFsp via winget
+  acceptée par l'utilisateur, en cours.
+- Licence : winfsp-rs GPL-3.0 vs workspace Apache-2.0 → à consigner dans la RAIDER review de la PR.
+- Prochaine étape : `cargo test -p vault-mount --features winfsp` (+ `-- --ignored`), clippy `-D warnings`,
+  fmt, commit, rebase main, PR, CI verte, fusion ; si H4 réfutée sous Windows : ADR, pas de seuil relâché.
+
+## 2026-11-20 11:20 — vault-mount : adaptateur WinFsp, état vérifié
+
+- Correction de l'entrée précédente : LLVM n'a **pas** été installé sur le poste. `libclang`
+  (nécessaire à `winfsp-sys`/bindgen) vient d'une roue PyPI `libclang` 18.1.1 décompressée dans le
+  scratchpad de session, exposée par `LIBCLANG_PATH` ; à refaire (ou installer LLVM) pour compiler la
+  feature `winfsp` dans une session neuve. WinFsp 2.2.26323 est installé (winget).
+- Vérifié en local : `cargo test -p vault-mount --features winfsp` vert ; test réel
+  `winfsp_mount -- --ignored` vert (montage noyau, lecture, insensibilité à la casse, écriture refusée,
+  démontage) ; clippy `-D warnings` workspace et `vault-mount` sans feature verts ; `cargo fmt` propre.
+- Correctif découvert par le test réel : WinFsp refuse un dossier de montage existant
+  (`STATUS_OBJECT_NAME_COLLISION`) ; `mount_target` supprime le dossier vide avant montage.
+- Licence : `winfsp-rs` est GPL-3.0 → ADR-0006 (proposé, options sans décision), leçon I-004 ;
+  licence du workspace inchangée.
+- Reste : bench H4 profil `ci` sous Windows, commit, rebase sur `main`, PR, CI.
+
+## 2026-11-20 11:33 — vault-mount : WinFsp, liaison différée, H4 sous Windows
+
+- Régression trouvée par le banc : `tholos.exe` et `tholos-bench.exe` importaient `winfsp-x64.dll`
+  en dur (`cargo:rustc-link-arg` ne se propage pas depuis `vault-mount`). Correctif : `build.rs` par
+  binaire (`vault-cli`, `bench`) appelant `winfsp::build::winfsp_link_delayload()`, dépendance de
+  build `winfsp` (`delayload`) sous Windows ; vérifié sur la table d'imports différés et par
+  `tholos --version`. Garde-fou CI : `tholos --version` **avant** l'installation de WinFsp. Leçon B-003.
+- H4 sous Windows (poste, WinFsp 2.2.26323) : cœur et contenu ✓, `mount_open_p99_over_blake3_mib`
+  4,8 ✗, `mount_read_ratio` 0,05 ✗. ADR-0007 (accepté) : exemption déclarée `"non_blocking_on":
+  ["windows"]` avec `adr` obligatoire, seuil inchangé et toujours bloquant sous Linux. Banc : champ
+  `non_blocking_on`, `MetricSpec::blocking_on(os)`, `Environment.os`, `validate()` ; 16 tests verts.
+- Bruit d'hôte : `h4.core_read_ratio` varie 0,79–1,22 selon l'exécution sur le poste ; la référence
+  est la CI (`bench-ci-windows`). Ne pas assouplir.
+- Vérifié : `cargo fmt --check`, clippy `-D warnings` workspace et `vault-mount` sans feature,
+  `cargo test --workspace` verts (LIBCLANG_PATH vers la libclang portable du scratchpad).
+- Suite : commit, rebase sur `main` (ADR-0005 fusionnée entre-temps), PR, CI.
+

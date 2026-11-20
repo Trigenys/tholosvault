@@ -89,6 +89,26 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
 - **Leçon générale** : un banc qui conclut doit distinguer « mesuré et conforme » de « non mesurable
   ici », et l'environnement de référence doit exiger la mesure plutôt que la tolérer.
 
+### I-004 — Une dépendance choisie pour sa qualité technique peut changer la licence du binaire (near miss, 2026-11-20)
+
+- **Contexte** : `stack.md` retenait `winfsp-rs` (Adopt) pour le montage Windows sur des critères
+  techniques (API sûre, `delayload`, maintenance). Sa licence GPL-3.0 n'a été relevée qu'au moment
+  d'écrire la PR de l'adaptateur, alors que le workspace est Apache-2.0 et que les apps sont
+  propriétaires (ADR-0001). Le pilote WinFsp lui-même a une exception FLOSS qui ne s'étend pas au
+  crate Rust.
+- **Risque** : publier un binaire `tholos` Windows ou une app desktop sous une licence incompatible
+  avec le modèle open core, et devoir réécrire l'adaptateur après coup.
+- **Règle** : toute décision Adopt / Adapt dans `docs/produit/stack.md` note la licence de la brique
+  et sa compatibilité avec ADR-0001 (cœur Apache-2.0, apps propriétaires). Une brique copyleft dans
+  un chemin qui finit dans un binaire distribué passe par un ADR avant d'être activée par défaut.
+- **Prévention vérifiable** : ADR-0006 (options, décision attendue avant publication de binaires
+  Windows) ; feature `winfsp` non activée par défaut dans `vault-mount` ; à ajouter dans le chantier
+  release : `cargo deny check licenses` avec liste blanche Apache-2.0 / MIT / BSD et exception
+  explicite pour `winfsp` tant que l'ADR est en statut proposé.
+- **Leçon générale** : la revue reuse-first compare des approches techniques ; elle doit aussi
+  comparer leur licence, car une dépendance se change plus facilement avant que son API ne soit
+  épousée par le code.
+
 ## Réfutations consignées par le banc
 
 ### B-001 — H5 : coût de construction de la parité (2026-11-16)
@@ -118,3 +138,18 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
   montage : la concurrence du noyau (lecture anticipée, plusieurs fils) change le profil d'accès. Mesurer
   le cœur **sous la même concurrence** que le pilote avant d'annoncer un ratio ; un cache sans vol unique
   multiplie le travail au lieu de l'économiser dès que deux requêtes manquent le même morceau.
+
+### B-003 — H4 : latence d'ouverture à travers le montage WinFsp (2026-11-20)
+- **Mesure** : première exécution de H4 sous Windows (poste de développement, WinFsp 2.2.26323) :
+  p99 d'ouverture 825 µs = 4,8 × BLAKE3 d'un MiB (seuil ≤ 1 ; 0,69 sous FUSE) ; débit séquentiel
+  0,05 (déjà consigné par l'ADR-0004) ; cœur et contenu dans le seuil.
+- **Décision** : [ADR-0007](../adr/0007-latence-ouverture-montage-winfsp.md) — exemption déclarée
+  par système (`non_blocking_on: ["windows"]`, ADR obligatoire), seuil inchangé et toujours bloquant
+  sous Linux ; chantier de suivi (mise en cache de la résolution de chemin, index insensible à la
+  casse, mesure de référence sur `windows-latest`).
+- **Leçon** : un seuil commun à deux pilotes se réfute pilote par pilote ; l'exemption se déclare
+  dans le contrat du banc (visible, contrôlée), jamais dans le code de la thèse ni par un seuil
+  relevé. Un même test réel a aussi révélé qu'un argument de liaison (`/DELAYLOAD`) émis par une
+  bibliothèque ne protège pas les binaires qui l'embarquent : le binaire final doit l'émettre
+  lui-même, et la CI doit démarrer le binaire **avant** d'installer le pilote.
+

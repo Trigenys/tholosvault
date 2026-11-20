@@ -50,15 +50,19 @@ struct Args {
 
 /// Détecte les capacités de l'hôte sans rien monter.
 fn detect_environment() -> Environment {
-    let mut env = Environment::default();
+    let mut env = Environment {
+        os: std::env::consts::OS.to_string(),
+        ..Environment::default()
+    };
     match vault_mount::probe() {
         Ok(backend) => {
             env.available.insert("mount".into());
             env.available.insert(backend.to_string().to_lowercase());
         }
         Err(e) => {
-            env.missing.insert("mount".into(), e.to_string());
-            env.missing.insert("fuse".into(), e.to_string());
+            for cap in ["mount", "fuse", "winfsp"] {
+                env.missing.insert(cap.into(), e.to_string());
+            }
         }
     }
     for cap in report::CAPABILITIES {
