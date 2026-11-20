@@ -339,3 +339,73 @@
 - L'ADR-0005 renvoie à ce rapport dans sa section « Veille en ligne ».
 - Commit 6d63056 poussé sur `docs/adr-0005-telechargement` (PR #10), par-dessus la séance de vision produit (b9def6a).
 - Reste : relecture et fusion de la PR #10 par le propriétaire.
+
+## 2026-11-20 12:28 — vault-fetch MVP : `tholos fetch` (ADR-0005, thèses H9a/H9e)
+
+- Branche `claude/musing-bose-8702db` (worktree `.claude/worktrees/musing-bose-8702db`), PR à ouvrir vers `main`.
+- Écrit : `crates/vault-fetch` (plan par morceaux, `.part` atomique, BLAKE3 par morceau via `vault-core`,
+  seau à jetons, événements ; 7 tests unitaires verts), `crates/vault-fetch-http` (reqwest + rustls/`ring`,
+  sonde HEAD/Range, ETag, Retry-After, repli ; serveur de test axum sous la feature `test-server`),
+  `tholos fetch` (`--out --root --connections --limit --no-parity --plan --restart`), 10 tests d'intégration
+  `crates/vault-fetch-http/tests/h9.rs`, thèse H9 au banc (`bench/src/theses/h9.rs`, `config.json`, README),
+  `docs/recherche/these-h9-telechargement.md`, ADR-0006, `appfactory-impact.json` (surface `fetch`).
+- Reuse-first : `trauma` Learn (découpage API/relances), `reqwest` Adopt (fournisseur `ring` : pas de cmake/NASM
+  sur l'hôte), `axum` Adopt (serveur de test), `aria2`/`winfsp` écartés.
+- Verrou : disque C: plein (≈ 200 Mo libres) ; `vault-fetch-http`, CLI, tests et banc ne sont **pas encore
+  compilés**. Candidats à libérer : `target/` du dépôt principal (2,3 Go), `target/` des worktrees voisins,
+  `AppData/Local/Temp` (5,8 Go) — décision du propriétaire.
+- Prochaine étape : libérer l'espace, `cargo test -p vault-fetch-http`, ajuster les assertions, `--only H9`
+  en local pour compléter l'ADR-0006, `fmt`/`clippy -D warnings`/`test --workspace`, commit, push, PR avec
+  revue RAIDER.
+
+## 2026-11-20 12:35 — vault-fetch MVP : état après type-check
+
+- `cargo check` offline vert sur `vault-fetch-http` (feature `test-server`), `vault-cli`, `vault-bench` (H9 câblée).
+- Disque libéré en supprimant `~/.cargo/registry/src` (cache d'extraction, régénéré par cargo) ; il reste ≈ 300 Mo,
+  insuffisant pour l'édition de liens des tests du workspace. Décision du propriétaire attendue sur `target/`
+  du dépôt principal (2,3 Go) / worktrees voisins / `AppData/Local/Temp` (5,8 Go).
+- Test `source_without_ranges_falls_back_to_single_stream` corrigé : `bytes_received == len` (la sonde 200 ne
+  lit pas le corps).
+- Prochaine étape : `cargo test -p vault-fetch-http --features test-server` (en cours), puis workspace,
+  clippy, banc `--only H9`, commit, push, PR.
+
+
+## 2026-11-20 12:52 — vault-fetch MVP : tests verts, cause racine de la coupure masquée
+
+- Disque libéré par le propriétaire (≈ 8,7 Go) : `cargo test --workspace` offline vert (94 tests, dont 10
+  d'intégration `crates/vault-fetch-http/tests/h9.rs`), `cargo fmt --check` vert, clippy relancé après une
+  correction `clone_on_copy` (`fetcher.rs`).
+- Cause racine des 3 tests rouges : hyper (serveur) lit le flux avant d'écrire l'en-tête, donc une coupure
+  `[Ok, Err]` fermait la connexion sans réponse, et reqwest 0.13 réémettait la requête en silence (couche de
+  relance par défaut) → `cuts: 0`. Correctifs : `Client::builder().retry(reqwest::retry::never())` dans
+  l'adaptateur ; `sleep` 20 ms entre octets servis et réinitialisation dans le serveur de test ; borne
+  `content_gets` = début des tables (`trailer().chunk_index_off`) dans le test et le banc. Leçon I-004.
+- ADR-0005 passé à « accepté » (MVP livré). Corps de PR prêt (RAIDER review, reuse-first).
+- Prochaine étape : résultat clippy, `cargo run -p vault-bench --release -- --only H9` pour compléter
+  l'ADR-0006, commit (sans attribution), push `claude/musing-bose-8702db`, PR vers `main`.
+
+## 2026-11-20 13:02 — Renumérotation ADR et mesures H9
+
+- L'ADR sur la métrique de débit non bloquante est **ADR-0008** (`docs/adr/0008-debit-agrege-telechargement.md`),
+  pas 0006 : la PR #11 (WinFsp) occupe déjà 0006 et 0007. Références mises à jour (`bench/config.json`,
+  ADR-0005, thèse H9). Les entrées précédentes qui citent « ADR-0006 » désignent ce fichier.
+- Banc `--only H9` (release, profil `ci`, 32 MiB) : `corrupt_chunk_cost` 1, `resume_rebytes` 0,
+  `root_mismatch_rejected` 1, `aggregate_throughput_ratio` 0,31 (non bloquant, consigné dans l'ADR-0008 avec
+  les causes à mesurer ; seuil 0,9 inchangé). Sortie du banc : succès.
+- Suite : commit, push, PR vers `main`.
+
+## 2026-11-20 13:04 — PR #13 ouverte
+
+- Commit `325d963` poussé sur `claude/musing-bose-8702db`, PR https://github.com/Trigenys/tholosvault/pull/13
+  vers `main` (sections Objet / Changements / Reuse-first / RAIDER review / Vérification locale).
+- CI impact-aware déclenchée (gates `rust` ubuntu + windows, `bench` profil ci) : en cours à l'ouverture,
+  résultat à relever dans la PR.
+- Hors périmètre, à ouvrir ensuite : lecture / montage d'une archive incomplète (H9b, H9d) ; verdict de thèse
+  du banc qui marque « refuted » une thèse dont seule une métrique non bloquante est hors cible.
+
+## 2026-11-20 13:08 — Branche renommée, PR #14 remplace la #13
+
+- Branche `feat/vault-fetch-mvp` (l'ancienne `claude/…` supprimée du dépôt distant : son nom aurait été repris
+  dans le commit de fusion). PR https://github.com/Trigenys/tholosvault/pull/14 vers `main`, même corps ;
+  PR #13 fermée en la référençant.
+- Prochaine étape : relever la CI de la #14, fusionner ; puis H9b/H9d dans une PR séparée.

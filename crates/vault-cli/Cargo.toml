@@ -1,7 +1,7 @@
 [package]
 name = "vault-cli"
 version = "0.1.0"
-description = "CLI tholos : pack, list, verify, repair, extract, cat, mount."
+description = "CLI tholos : pack, list, verify, repair, extract, cat, mount, fetch."
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -22,3 +22,6 @@ clap.workspace = true
 anyhow.workspace = true
 vault-mount.workspace = true
 ctrlc.workspace = true
+vault-fetch.workspace = true
+vault-fetch-http.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "macros"] }

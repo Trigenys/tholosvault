@@ -1,0 +1,23 @@
+[package]
+name = "vault-fetch"
+version = "0.1.0"
+description = "Téléchargement segmenté et vérifié d'archives tholosvault (ADR-0005) : planification sur les frontières de morceaux, reprise, vérification BLAKE3 par morceau."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version = "1.85"
+
+[dependencies]
+vault-core.workspace = true
+tokio = { workspace = true, features = ["rt", "sync", "time", "macros"] }
+async-trait.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+blake3.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "test-util"] }
+tempfile.workspace = true

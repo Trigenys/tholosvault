@@ -11,7 +11,8 @@
       "parity_seeds": 8,
       "level19": false,
       "ldm_baseline": false,
-      "lookup_samples": 20000
+      "lookup_samples": 20000,
+      "fetch_bytes": 33554432
     },
     "full": {
       "code_bytes": 268435456,
@@ -23,7 +24,8 @@
       "parity_seeds": 100,
       "level19": true,
       "ldm_baseline": true,
-      "lookup_samples": 200000
+      "lookup_samples": 200000,
+      "fetch_bytes": 268435456
     }
   },
   "theses": {
@@ -139,6 +141,24 @@
       "status": "not_measured",
       "reason": "nécessite un disque et un hôte de référence stables",
       "prerequisite": "hôte de mesure dédié (hors CI partagée)"
+    },
+    "H9": {
+      "title": "Téléchargement conscient du format : coût d'une corruption, reprise sans re-téléchargement, refus avant contenu, débit agrégé (ADR-0005)",
+      "status": "measured",
+      "metrics": {
+        "h9.corrupt_chunk_cost": { "unit": "morceaux", "threshold": { "op": "<=", "value": 1 }, "blocking": true },
+        "h9.resume_rebytes": { "unit": "B", "threshold": { "op": "==", "value": 0 }, "blocking": true },
+        "h9.root_mismatch_rejected": { "unit": "ratio", "threshold": { "op": "==", "value": 1 }, "blocking": true },
+        "h9.aggregate_throughput_ratio": {
+          "unit": "x",
+          "threshold": { "op": ">=", "value": 0.9 },
+          "blocking": false,
+          "adr": "docs/adr/0008-debit-agrege-telechargement.md",
+          "requires": "curl"
+        },
+        "h9.fetch_s_per_gb": { "unit": "s/GB", "requires": "curl" },
+        "h9.curl_s_per_gb": { "unit": "s/GB", "requires": "curl" }
+      }
     }
   }
 }
