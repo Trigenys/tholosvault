@@ -63,6 +63,7 @@ Niveaux : **MVP** (prouve la thèse, premiers utilisateurs techniques), **V1** (
 | Landing page | Expliquer, convaincre, télécharger, capter des e-mails | MVP (une page) → V1 |
 | App web (console/compte) | Compte, licences, archives publiées, partage, télémétrie opt-in | V1 (compte + licences) → Plus tard (console complète) |
 | App mobile | Consulter une archive, extraire un fichier, vérifier l'intégrité | Plus tard |
+| Téléchargeur (`tholos fetch`, écran « Téléchargements ») | Récupérer une archive par segments parallèles avec reprise, vérification BLAKE3 par morceau, file d'attente, limite de débit, lecture avant la fin (ADR-0005) | MVP (CLI) → V1 (desktop, file, montage partiel) |
 
 Le CLI n'est pas demandé dans le cadrage initial mais il est la surface la moins chère pour prouver le format ;
 toutes les apps l'enveloppent (même cœur Rust, voir `docs/produit/stack.md`).
@@ -107,6 +108,7 @@ Toute action passe par le cœur Rust ; l'UI n'implémente aucune logique de form
 | Réparer | Reconstruire | Choix de la source : parité locale, autre volume, version voisine, URL ; progression ; rapport | Morceaux réparés / irréparables | MVP (parité locale) → V1 (version voisine, URL) |
 | Mise à jour delta | Passer d'une racine à une autre | Comparer deux archives ou source + archive ; aperçu des morceaux changés ; produire un fichier delta ou appliquer | Octets à transférer vs taille totale, liste des fichiers changés | V1 |
 | Partager | Publier ou exporter | Export de volumes, génération d'un lien (via compte web), QR code pour mobile | Lien, racine, taille | V1 (export) → Plus tard (lien compte) |
+| Téléchargements (ADR-0005) | Récupérer des archives distantes | File d'attente, pause / reprise, connexions et limite de débit, carte des morceaux reçus / vérifiés / rejetés, « Ouvrir » ou « Monter » avant la fin | Débit, octets vérifiés / restants, morceaux redemandés, racine attendue vs reçue | V1 |
 | Profil d'accès (E1) | Optimiser le layout chaud/froid | Activer l'enregistrement, voir la trace, lancer `optimize` | Fichiers chauds détectés, gain estimé | Plus tard |
 | Paramètres | Pilote, cache, télémétrie opt-in, mises à jour de l'app, compte | Formulaires | — | MVP |
 | Journal / Diagnostics | Support | Logs structurés, export d'un bundle de diagnostic (sans secrets) | — | MVP |
@@ -182,6 +184,9 @@ Légende : ● MVP · ◐ V1 · ○ Plus tard · — non prévu.
 | Vérifier l'intégrité (Merkle) | ● | ● | — | ◐ (racine en ligne) | ○ |
 | Réparer par parité locale | ● | ● | — | — | — |
 | Réparer depuis une version voisine / URL | ◐ | ◐ | — | ◐ (source) | — |
+| Télécharger une archive par segments, reprise, vérification par morceau (ADR-0005) | ● | ◐ | — | ◐ (source `/s/<id>`) | — |
+| File d'attente et limite de débit des téléchargements | ◐ | ◐ | — | — | — |
+| Lire / monter une archive en cours de téléchargement | ◐ | ◐ | — | — | — |
 | Produire / appliquer un delta | ◐ | ◐ | — | ◐ (graphe) | — |
 | Dictionnaires zstd par catégorie | ● | ● (préréglages) | — | — | — |
 | Recompression réversible Deflate / JPEG (E3) | ◐ | ◐ | — | — | — |
@@ -212,8 +217,11 @@ Légende : ● MVP · ◐ V1 · ○ Plus tard · — non prévu.
 | D9 | Signature et distribution desktop | Certificat EV Windows + notarisation Apple vs non signé (MVP) | Non signé en MVP (utilisateurs techniques), signé en V1 | V1 |
 | D10 | Télémétrie | Aucune vs opt-in auto-hébergée (Umami / OpenTelemetry) | Opt-in, auto-hébergée, agrégée ; jamais de chemin de fichier | MVP |
 | D11 | Nom et domaine | « VAULT » est très générique (HashiCorp Vault, Obsidian « vault ») | **Tranché 2026-11-16 (ADR-0002)** : nom public **tholosvault**, éditeur Trigenys Group, CLI `tholos` ; VAULT reste le nom de travail interne. Détail : `docs/produit/nom.md` | — |
+| D12 | Téléchargement d'archives distantes | Aucun (navigateur / `curl` puis `verify`) vs téléchargeur générique (`trauma`, `aria2c`) vs téléchargeur conscient du format | **Proposé 2026-11-20 (ADR-0005)** : crate `vault-fetch` (cœur agnostique du transport) + `vault-fetch-http` ; segments sur frontières de morceaux, vérification BLAKE3 par morceau, reprise, lecture partielle ; `tholos fetch` en MVP | MVP (CLI) → V1 |
 
 ## 9. Hors périmètre déclaré
 
 Écriture en place (overlay), montage sur mobile, décompression GPU, compression neuronale, adaptateur EROFS/composefs,
 dédup inter-archives distante : hors MVP et hors V1, conformément au rapport. Toute entrée dans ces sujets passe par un ADR.
+Réseau : le téléchargement d'archives tholosvault est entré au périmètre par l'ADR-0005 (proposé) ; restent hors
+périmètre BitTorrent / P2P, extension navigateur, sites vidéo, téléchargement de fichiers non tholosvault, upload.

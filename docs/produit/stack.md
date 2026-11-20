@@ -28,6 +28,7 @@ Briques (Adopt / Adapt) :
 | macOS sans kext | `KhaosT/FSKitSample` (★106), `debox-network/FSKitBridge` (★21, pont FSKit → backend Rust/C) | Learn ; FUSE-T en repli, comme le rapport |
 | Algorithmes de layout | `mhx/dwarfs` (★2 635) : nilsimsa, segmentation, index non compressé | Adapt (réimplémentation Rust des idées, pas de dépendance C++) |
 | Recompression | `preflate-rs`, `lepton_jpeg` / JXL jbrd | Adopt en V1 (E3) |
+| Téléchargement (ADR-0005) | `seanmonstar/reqwest` (+ `rustls`, `tokio`) comme transport HTTP ; `rgreinho/trauma` (★180, MIT, reprise mais une connexion) ; `harshsinghsv/swiftdl` (★804, MIT) et `FortoGraphy/prism-download-manager` (★973, MIT) : moteurs multi-connexions en Rust, apps Tauri ; `aria2/aria2` (GPL-2.0, C++, release 2023) | Adopt `reqwest` dans `vault-fetch-http` ; Build le cœur `vault-fetch` (segments sur frontières de morceaux, BLAKE3 par morceau) ; Learn `trauma`, `swiftdl`, `prism` ; `aria2` écarté (binaire externe, vérification fichier entier) |
 
 ## 2. App desktop
 
@@ -82,7 +83,7 @@ Si la V1 doit être minimale, l'API Axum peut servir des pages HTMX et le front 
 
 | Surface | Stack retenue | Alternative écartée |
 |---|---|---|
-| Cœur / CLI | Rust (`fastcdc-rs`, `blake3`, `zstd`, `reed-solomon-simd`, `fuser`, `winfsp-rs`) | Go |
+| Cœur / CLI | Rust (`fastcdc-rs`, `blake3`, `zstd`, `reed-solomon-simd`, `fuser`, `winfsp-rs`, `reqwest` pour `vault-fetch-http`) | Go |
 | Desktop | Tauri 2 + React/TS, `vault-core` lié | Electron |
 | Landing | Astro statique | Next.js |
 | Web console | API Axum (Rust) + Next.js | Tout Next.js / tout Axum+HTMX |
