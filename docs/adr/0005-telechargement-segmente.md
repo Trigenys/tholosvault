@@ -33,6 +33,17 @@ Reuse-first (recherche GitHub du 2026-11-20, `gh search repos --language rust`) 
 | `aria2/aria2` (★43 571, GPL-2.0, C++, dernière release 1.37.0 du 2023-11-15) en sous-processus via RPC JSON | Tout le téléchargement générique est fait, multi-sources | Binaire externe à distribuer par OS, licence séparée, vérification par fichier entier (`--checksum`), pas de montage partiel, projet au ralenti | **Écarté** (Learn : politique de reprise et de politesse HTTP) |
 | `seanmonstar/reqwest` (+ `rustls`, `tokio`) | Client HTTP async déjà dans la stack (API Axum, desktop Tauri), `Range`, flux, timeouts | Aucune logique de segments ni d'état : à construire | **Adopt** comme transport HTTP |
 
+Veille en ligne (2026-11-20) : aucun outil connu ne combine archive compressée dédupliquée, Merkle par
+morceau, parité, téléchargement segmenté et montage partiel ; chaque brique existe séparément.
+
+| Projet | Ce qu'il montre | Leçon retenue |
+|---|---|---|
+| `mxmlnkn/ratarmount` (Python, fsspec/aiohttp) et `hilather/ratarmount-rs` (Rust, index SQLite) | Montage d'une archive distante par HTTP `Range` | Leur PR #61 : ~9 000 requêtes `Range` par shard de 128 MiB avant coalescence → **coalescer les plages** : un segment = une requête couvrant plusieurs morceaux contigus, jamais une requête par morceau |
+| `huggingface/xet-core` | Téléchargement vérifié par morceau avec hash Merkle par chunk puis hash de fichier ; leur PR #967 revérifie le fichier écrit | Même schéma : BLAKE3 par morceau à l'arrivée **et** `verify` de la racine sur le fichier écrit à la fin |
+| `systemd/casync`, `folbricht/desync` | Chunks adressés par contenu servis depuis un magasin HTTP/S3 statique, montage FUSE ; RAUC streame des bundles casync sans stockage local | Un serveur statique (fichier unique + `Range`) suffit, pas de service dédié ; le montage sur source distante est réaliste |
+| `downkyicore` (PR #372, issue #331) | Pièges de reprise | Valider un **ETag fort** avant de reprendre ; état par segment et couverture des plages, jamais de relecture complète du fichier pour retrouver l'état |
+| AB Download Manager, DLMan (Rust + Tauri, multi-segments, files), ODM, aria2 (moteur), Motrix (Electron ~100 Mo, en perte de vitesse) | Marché 2026 des gestionnaires génériques | Ne pas refaire un FDM générique ; DLMan sert de référence UX pour l'écran Tauri |
+
 Options d'architecture :
 
 1. **Aucun téléchargeur** : laisser navigateur / `curl` / `aria2c` récupérer le fichier, puis `tholos verify` et
@@ -131,6 +142,8 @@ Comportements imposés :
 
 - Serveur sans `Range` (`Accept-Ranges: none` ou 200 sur une requête 206) : une connexion, reprise impossible,
   message explicite ; la vérification par morceau reste active.
+- Reprise : l'ETag **fort** (ou la version S3) enregistré dans `.part` doit correspondre avant de réutiliser le
+  bitmap ; un ETag faible (`W/`) ou absent impose de revérifier les tables et la racine avant de reprendre.
 - Changement distant pendant le téléchargement (ETag / taille / racine différents) : arrêt, état conservé,
   erreur actionnable (« la source a changé, relancer avec `--restart` »).
 - `429` / `503` + `Retry-After` : respecté ; backoff exponentiel plafonné sinon ; trois rejets BLAKE3 consécutifs
