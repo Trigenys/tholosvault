@@ -476,3 +476,12 @@
   dans le commit de fusion). PR https://github.com/Trigenys/tholosvault/pull/14 vers `main`, même corps ;
   PR #13 fermée en la référençant.
 - Prochaine étape : relever la CI de la #14, fusionner ; puis H9b/H9d dans une PR séparée.
+
+## 2026-11-23 17:02 — PR #14 réalignée sur main (après fusion de la PR #12)
+
+- `origin/main` (24f173a, vol unique FUSE) fusionné dans `feat/vault-fetch-mvp` : conflits résolus sur
+  `PASSATION-vault.md` (les deux séries d'entrées, ordre chronologique) et `crates/vault-cli/src/main.rs`
+  (`Mount` avec `cache_chunks` + `Fetch`) ; `bench/config.json`, `report.rs`, `vault-core`, `lessons-learned.md`
+  fusionnés automatiquement, aucun seuil modifié.
+- Vérification locale après fusion : fmt OK, clippy `-D warnings` OK, `cargo test --workspace` 99 tests, 0 échec.
+- Prochaine étape : fusion de la #14 par le propriétaire une fois CLEAN et CI verte.
