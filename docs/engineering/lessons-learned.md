@@ -118,3 +118,13 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
   montage : la concurrence du noyau (lecture anticipée, plusieurs fils) change le profil d'accès. Mesurer
   le cœur **sous la même concurrence** que le pilote avant d'annoncer un ratio ; un cache sans vol unique
   multiplie le travail au lieu de l'économiser dès que deux requêtes manquent le même morceau.
+- **Suivi** (2026-11-20, chantier « lecture séquentielle à travers FUSE ») : vol unique posé et mesuré
+  (`h4.mount_decode_ratio` = 1,00, borne bloquante ≤ 1,05 sur le cœur concurrent) — la cause présumée
+  n'était **pas** la bonne : chaque morceau n'était déjà décodé qu'une fois en pratique. La perte est la
+  latence d'un aller-retour FUSE par requête (lecture anticipée plafonnée à 128 KiB par le noyau, puis
+  `lookup`/`read`/`getattr` par fichier sur les petits fichiers). `FUSE_NO_OPEN_SUPPORT` gagne 1,5 × sur
+  les petits fichiers ; `FOPEN_DIRECT_IO` mesuré et rejeté. Seuil inchangé, toujours non bloquant ;
+  métriques par corpus ajoutées pour séparer flux et coût par fichier (détail : ADR-0004, section finale).
+  **Leçon ajoutée** : avant d'attribuer une perte à son propre code, mesurer le nombre de requêtes et leur
+  taille côté noyau (`h4.mount_req_kib`) et le coût fixe par requête ; une hypothèse plausible chiffrée
+  (1/8 ≈ 0,125) n'est pas une mesure.

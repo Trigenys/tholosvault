@@ -30,6 +30,15 @@ pub fn percentile(samples: &[u64], p: f64) -> u64 {
     s[rank.clamp(1, s.len()) - 1]
 }
 
+pub fn median_f64(samples: &[f64]) -> f64 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+    let mut v = samples.to_vec();
+    v.sort_by(f64::total_cmp);
+    v[v.len() / 2]
+}
+
 pub fn median(samples: &[u64]) -> u64 {
     percentile(samples, 50.0)
 }

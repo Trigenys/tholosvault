@@ -1,16 +1,18 @@
 //! Adaptateur FUSE (Linux) : traduit les requêtes du noyau vers [`VaultFs`]
 //! et les [`FsError`] vers des errno. Aucune logique de format ici.
 
+use std::cell::RefCell;
 use std::ffi::OsStr;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
 use fuser::{
     BackgroundSession, Config, Errno, FileAttr, FileHandle, FileType, Filesystem, FopenFlags,
-    Generation, INodeNo, KernelConfig, LockOwner, MountOption, OpenAccMode, OpenFlags, ReplyAttr,
-    ReplyData, ReplyDirectory, ReplyEntry, ReplyOpen, ReplyStatfs, Request, SessionACL,
+    Generation, INodeNo, InitFlags, KernelConfig, LockOwner, MountOption, OpenAccMode, OpenFlags,
+    ReplyAttr, ReplyData, ReplyDirectory, ReplyEntry, ReplyOpen, ReplyStatfs, Request, SessionACL,
 };
 
 use crate::{Attr, FsError, MountError, MountOptions, NodeKind, VaultFs};
@@ -18,11 +20,22 @@ use crate::{Attr, FsError, MountError, MountOptions, NodeKind, VaultFs};
 const BLOCK: u32 = 4096;
 const READAHEAD: u32 = 1 << 20;
 
+thread_local! {
+    /// Tampon de réponse réutilisé par fil de service : une requête de lecture
+    /// n'alloue ni ne remet à zéro `size` octets à chaque appel.
+    static READ_BUF: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
+}
+
 struct FuseFs {
     fs: Arc<VaultFs>,
     ttl: Duration,
     uid: u32,
     gid: u32,
+    /// Le noyau accepte `ENOSYS` à `open` et n'envoie alors plus ni `open` ni
+    /// `release` : deux allers-retours de moins par fichier. Sans effet sur
+    /// la sûreté : le montage est `ro` (le VFS rejette toute ouverture en
+    /// écriture) et un fichier n'a pas de descripteur côté démon.
+    no_open: AtomicBool,
 }
 
 fn errno(e: FsError) -> Errno {
@@ -71,6 +84,14 @@ impl Filesystem for FuseFs {
         if let Err(max) = config.set_max_readahead(READAHEAD) {
             let _ = config.set_max_readahead(max);
         }
+        let caps = config.capabilities();
+        self.no_open.store(
+            caps.contains(InitFlags::FUSE_NO_OPEN_SUPPORT),
+            Ordering::Relaxed,
+        );
+        if caps.contains(InitFlags::FUSE_PARALLEL_DIROPS) {
+            let _ = config.add_capabilities(InitFlags::FUSE_PARALLEL_DIROPS);
+        }
         Ok(())
     }
 
@@ -92,6 +113,9 @@ impl Filesystem for FuseFs {
     }
 
     fn open(&self, _req: &Request, ino: INodeNo, flags: OpenFlags, reply: ReplyOpen) {
+        if self.no_open.load(Ordering::Relaxed) {
+            return reply.error(Errno::ENOSYS);
+        }
         if !matches!(flags.acc_mode(), OpenAccMode::O_RDONLY) {
             return reply.error(Errno::EROFS);
         }
@@ -114,11 +138,13 @@ impl Filesystem for FuseFs {
         _lock_owner: Option<LockOwner>,
         reply: ReplyData,
     ) {
-        let mut buf = vec![0u8; size as usize];
-        match self.fs.read(ino.0, offset, &mut buf) {
-            Ok(n) => reply.data(&buf[..n]),
-            Err(e) => reply.error(errno(e)),
-        }
+        READ_BUF.with_borrow_mut(|buf| {
+            buf.resize(size as usize, 0);
+            match self.fs.read(ino.0, offset, buf) {
+                Ok(n) => reply.data(&buf[..n]),
+                Err(e) => reply.error(errno(e)),
+            }
+        });
     }
 
     fn opendir(&self, _req: &Request, ino: INodeNo, _flags: OpenFlags, reply: ReplyOpen) {
@@ -158,7 +184,7 @@ impl Filesystem for FuseFs {
 }
 
 pub(crate) fn spawn(
-    fs: VaultFs,
+    fs: Arc<VaultFs>,
     mountpoint: &Path,
     opts: &MountOptions,
 ) -> Result<BackgroundSession, MountError> {
@@ -185,10 +211,11 @@ pub(crate) fn spawn(
         config.mount_options.push(MountOption::AutoUnmount);
     }
     let fuse = FuseFs {
-        fs: Arc::new(fs),
+        fs,
         ttl: opts.ttl,
         uid: meta.uid(),
         gid: meta.gid(),
+        no_open: AtomicBool::new(false),
     };
     fuser::spawn_mount(fuse, mountpoint, &config).map_err(io)
 }
