@@ -73,9 +73,23 @@
       }
     },
     "H4": {
-      "title": "Un montage FUSE/WinFsp lit à la vitesse du décodeur",
+      "title": "Le cœur d'un montage lit à la vitesse du décodeur ; à travers le noyau (FUSE/WinFsp), le débit est borné par la latence par requête",
       "status": "measured",
       "metrics": {
+        "h4.threads": {
+          "unit": "threads",
+          "source": "parallélisme disponible : fils du démon FUSE et de la lecture concurrente du cœur"
+        },
+        "h4.core_concurrent_read_ratio": {
+          "unit": "ratio",
+          "source": "lecture directe ÷ cœur vault-mount servi en requêtes de 128 KiB par h4.threads fils, fenêtre de 1 MiB par fenêtre (profil du noyau)"
+        },
+        "h4.core_concurrent_decode_ratio": {
+          "unit": "ratio",
+          "threshold": { "op": "<=", "value": 1.05 },
+          "blocking": true,
+          "source": "décodages de morceaux ÷ morceaux de l'archive sous la lecture concurrente du cœur (1 = chaque morceau décodé une fois, vol unique)"
+        },
         "h4.core_read_ratio": {
           "unit": "ratio",
           "threshold": { "op": ">=", "value": 0.9 },
@@ -95,7 +109,32 @@
           "blocking": false,
           "adr": "docs/adr/0004-debit-lecture-montage-fuse.md",
           "requires": "mount",
-          "source": "lecture séquentielle de vault-core ÷ lecture std::fs du montage (médiane de 3 passes)"
+          "source": "lecture séquentielle de vault-core (alternée, juste avant chaque passe) ÷ lecture std::fs du montage au parallélisme disponible (médiane de 3 passes)"
+        },
+        "h4.mount_read_ratio_code": {
+          "unit": "ratio",
+          "requires": "mount",
+          "source": "même ratio sur le seul corpus code (fichiers de 1 à 64 KiB : coût des allers-retours par fichier)"
+        },
+        "h4.mount_read_ratio_binary": {
+          "unit": "ratio",
+          "requires": "mount",
+          "source": "même ratio sur le seul corpus binary (fichiers de 4 KiB à 2 MiB : débit en flux)"
+        },
+        "h4.mount_read_ratio_1thread": {
+          "unit": "ratio",
+          "requires": "mount",
+          "source": "même ratio avec un seul fil de service FUSE (--threads 1)"
+        },
+        "h4.mount_req_kib": {
+          "unit": "KiB",
+          "requires": "mount",
+          "source": "taille moyenne des requêtes de lecture reçues du noyau (octets servis ÷ appels)"
+        },
+        "h4.mount_decode_ratio": {
+          "unit": "ratio",
+          "requires": "mount",
+          "source": "décodages de morceaux ÷ morceaux de l'archive pendant la lecture par le noyau (1 = chaque morceau décodé une fois)"
         },
         "h4.mount_open_ns": {
           "unit": "ns",

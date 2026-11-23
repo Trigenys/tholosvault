@@ -329,8 +329,10 @@ impl Archive {
 
     /// Comme [`Archive::read_range_into`], mais les morceaux décompressés et
     /// vérifiés passent par `cache` : une suite de lectures partielles
-    /// (montage, flux) ne décompresse chaque morceau qu'une fois. Un morceau
-    /// corrompu renvoie l'erreur et n'entre jamais dans le cache.
+    /// (montage, flux) ne décompresse chaque morceau qu'une fois, et des
+    /// lecteurs concurrents d'un même morceau manquant attendent un seul
+    /// décodage (vol unique). Un morceau corrompu renvoie l'erreur et n'entre
+    /// jamais dans le cache.
     pub fn read_range_into_cached(
         &self,
         file: usize,
@@ -339,12 +341,7 @@ impl Archive {
         cache: &ChunkCache,
     ) -> Result<usize> {
         self.read_range_with(file, offset, buf, |idx| {
-            if let Some(d) = cache.get(idx) {
-                return Ok(d);
-            }
-            let d: Arc<[u8]> = Arc::from(self.read_chunk(idx)?);
-            cache.insert(idx, d.clone());
-            Ok(d)
+            cache.get_or_decode(idx, || self.read_chunk(idx).map(Arc::from))
         })
     }
 

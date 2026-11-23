@@ -21,7 +21,7 @@ pub mod path;
 pub mod reader;
 pub mod writer;
 
-pub use cache::ChunkCache;
+pub use cache::{CacheStats, ChunkCache};
 pub use chunk::ChunkParams;
 pub use error::{Error, Result};
 pub use merkle::Hash;

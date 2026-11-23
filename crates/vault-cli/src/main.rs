@@ -71,6 +71,9 @@ enum Cmd {
         /// Autoriser les autres utilisateurs à lire le montage.
         #[arg(long)]
         allow_other: bool,
+        /// Morceaux décompressés gardés en cache (défaut : 64 ; 0 : aucun).
+        #[arg(long)]
+        cache_chunks: Option<usize>,
     },
     /// Télécharge une archive .vault en vérifiant chaque morceau à l'arrivée
     /// (plages HTTP alignées sur les morceaux, reprise sans re-téléchargement).
@@ -253,7 +256,8 @@ fn main() -> Result<()> {
             mountpoint,
             threads,
             allow_other,
-        } => mount(&archive, &mountpoint, threads, allow_other)?,
+            cache_chunks,
+        } => mount(&archive, &mountpoint, threads, allow_other, cache_chunks)?,
         Cmd::Fetch {
             url,
             out,
@@ -284,6 +288,7 @@ fn mount(
     mountpoint: &Path,
     threads: Option<usize>,
     allow_other: bool,
+    cache_chunks: Option<usize>,
 ) -> Result<()> {
     let backend = vault_mount::probe().map_err(|e| anyhow::anyhow!("{e}"))?;
     let fs =
@@ -291,6 +296,7 @@ fn mount(
     let opts = MountOptions {
         threads,
         allow_other,
+        cache_chunks,
         ..MountOptions::default()
     };
     let handle = vault_mount::mount(fs, mountpoint, &opts)
