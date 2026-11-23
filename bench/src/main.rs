@@ -61,6 +61,21 @@ fn detect_environment() -> Environment {
             env.missing.insert("fuse".into(), e.to_string());
         }
     }
+    // `curl` sert de référence externe à H9 (débit agrégé) : optionnel.
+    match std::process::Command::new("curl")
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+    {
+        Ok(st) if st.success() => {
+            env.available.insert("curl".into());
+        }
+        _ => {
+            env.missing
+                .insert("curl".into(), "`curl` introuvable dans le PATH".into());
+        }
+    }
     for cap in report::CAPABILITIES {
         if !env.has(cap) && !env.missing.contains_key(cap) {
             env.missing
@@ -118,12 +133,13 @@ fn run(args: &Args) -> Result<bool> {
     let wanted = |id: &str| args.only.is_empty() || args.only.iter().any(|o| o == id);
     let mut produced: BTreeMap<String, Vec<report::Measured>> = BTreeMap::new();
     type Runner = fn(&mut Ctx) -> Result<Vec<report::Measured>>;
-    let runners: [(&str, Runner); 5] = [
+    let runners: [(&str, Runner); 6] = [
         ("H1", theses::h1::run),
         ("H2", theses::h2::run),
         ("H3", theses::h3::run),
         ("H4", theses::h4::run),
         ("H5", theses::h5::run),
+        ("H9", theses::h9::run),
     ];
     for (id, runner) in runners {
         if !wanted(id) {

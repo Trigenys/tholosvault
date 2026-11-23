@@ -37,7 +37,8 @@
       ],
       "dependsOn": [
         "core",
-        "mount"
+        "mount",
+        "fetch"
       ]
     },
     "mount": {
@@ -82,7 +83,21 @@
       ],
       "dependsOn": [
         "core",
-        "mount"
+        "mount",
+        "fetch"
+      ]
+    },
+    "fetch": {
+      "paths": [
+        "crates/vault-fetch/**",
+        "crates/vault-fetch-http/**"
+      ],
+      "gates": [
+        "rust",
+        "bench"
+      ],
+      "dependsOn": [
+        "core"
       ]
     }
   }

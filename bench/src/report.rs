@@ -30,6 +30,13 @@ pub struct Profile {
     pub level19: bool,
     pub ldm_baseline: bool,
     pub lookup_samples: usize,
+    /// Taille du contenu binaire de l'archive téléchargée par H9.
+    #[serde(default = "default_fetch_bytes")]
+    pub fetch_bytes: u64,
+}
+
+fn default_fetch_bytes() -> u64 {
+    32 * 1024 * 1024
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,7 +74,7 @@ pub struct MetricSpec {
 }
 
 /// Capacités d'hôte qu'une métrique peut exiger.
-pub const CAPABILITIES: [&str; 3] = ["mount", "fuse", "winfsp"];
+pub const CAPABILITIES: [&str; 4] = ["mount", "fuse", "winfsp", "curl"];
 
 /// Capacités détectées sur l'hôte, avec la raison de chaque absence.
 #[derive(Debug, Default, Clone)]

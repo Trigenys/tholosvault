@@ -1,0 +1,29 @@
+[package]
+name = "vault-fetch-http"
+version = "0.1.0"
+description = "Adaptateur HTTP (reqwest + rustls) pour vault-fetch : sonde HEAD/Range, validateurs, relances avec repli exponentiel."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version = "1.85"
+
+[features]
+default = []
+test-server = ["axum", "tokio/rt-multi-thread", "tokio/net"]
+
+[dependencies]
+vault-fetch.workspace = true
+reqwest.workspace = true
+rustls.workspace = true
+tokio = { workspace = true, features = ["rt", "time", "sync", "macros"] }
+async-trait.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+thiserror.workspace = true
+axum = { workspace = true, optional = true }
+
+[dev-dependencies]
+vault-fetch-http = { path = ".", features = ["test-server"] }
+vault-core.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tempfile.workspace = true

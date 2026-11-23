@@ -1,5 +1,7 @@
 //! CLI `tholos` : adaptateur mince au-dessus de `vault-core`.
 
+mod fetch;
+
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -72,6 +74,35 @@ enum Cmd {
         /// Morceaux décompressés gardés en cache (défaut : 64 ; 0 : aucun).
         #[arg(long)]
         cache_chunks: Option<usize>,
+    },
+    /// Télécharge une archive .vault en vérifiant chaque morceau à l'arrivée
+    /// (plages HTTP alignées sur les morceaux, reprise sans re-téléchargement).
+    Fetch {
+        url: String,
+        /// Fichier de destination (défaut : dernier segment de l'URL).
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Racine d'archive attendue (hex) : refusée avant tout octet de contenu si différente.
+        #[arg(long)]
+        root: Option<String>,
+        /// Connexions parallèles.
+        #[arg(long, default_value_t = vault_fetch::DEFAULT_CONNECTIONS)]
+        connections: usize,
+        /// Débit maximal, ex. 5M, 512k (octets/s).
+        #[arg(long)]
+        limit: Option<String>,
+        /// Ne pas télécharger la section de parité.
+        #[arg(long)]
+        no_parity: bool,
+        /// Afficher le plan sans rien écrire.
+        #[arg(long)]
+        plan: bool,
+        /// Ignorer destination et état de reprise existants.
+        #[arg(long)]
+        restart: bool,
+        /// Pas de progression sur stderr.
+        #[arg(long, short)]
+        quiet: bool,
     },
 }
 
@@ -227,6 +258,27 @@ fn main() -> Result<()> {
             allow_other,
             cache_chunks,
         } => mount(&archive, &mountpoint, threads, allow_other, cache_chunks)?,
+        Cmd::Fetch {
+            url,
+            out,
+            root,
+            connections,
+            limit,
+            no_parity,
+            plan,
+            restart,
+            quiet,
+        } => fetch::run(fetch::FetchArgs {
+            url,
+            out,
+            root,
+            connections,
+            limit,
+            no_parity,
+            plan,
+            restart,
+            quiet,
+        })?,
     }
     Ok(())
 }

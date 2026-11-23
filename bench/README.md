@@ -1,4 +1,4 @@
-# bench — banc des thèses H1–H8
+# bench — banc des thèses H1–H9
 
 Banc public et reproductible des thèses du rapport de recherche (`docs/recherche/`). Il génère un corpus
 synthétique déterministe, empaquette avec `vault-core`, mesure, puis confronte chaque métrique au contrat
@@ -44,8 +44,9 @@ exécutions au même commit produisent le même digest.
 | H6 delta entre archives | non mesurée | prérequis : commande delta |
 | H7 dictionnaire zstd | non mesurée | prérequis : dictionnaire dans le format |
 | H8 décodage vs disque | non mesurée | prérequis : hôte et disque de référence |
+| H9 téléchargement conscient du format | mesurée | `h9.corrupt_chunk_cost` ≤ 1 morceau, `h9.resume_rebytes` = 0, `h9.root_mismatch_rejected` = 1 ; `h9.aggregate_throughput_ratio` ≥ 0,9 × `curl` parallèle (non bloquant, ADR-0006, requiert `curl`) |
 
-Une métrique peut exiger une capacité de l'hôte (`requires` : `mount`, `fuse`, `winfsp`). Absente,
+Une métrique peut exiger une capacité de l'hôte (`requires` : `mount`, `fuse`, `winfsp`, `curl`). Absente,
 la métrique est **sautée** (valeur `—`, raison dans la colonne OK) et la thèse a le verdict
 `incomplete`, jamais `supported` : le banc ne conclut pas sur un montage qu'il n'a pas fait. Produire
 une telle métrique sans la capacité est une erreur (code 2). En CI, `--require-env mount` transforme

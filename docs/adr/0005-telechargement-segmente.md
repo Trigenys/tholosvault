@@ -1,6 +1,6 @@
 # ADR-0005 — Téléchargement segmenté conscient du format (`vault-fetch`)
 
-- **Statut** : proposé
+- **Statut** : accepté (MVP livré le 2026-11-20 : `vault-fetch`, `vault-fetch-http`, `tholos fetch` ; V1 et lecture partielle à venir)
 - **Date** : 2026-11-20
 - **Contexte** : le propriétaire veut récupérer une archive `.vault` « en une fois », à la manière de
   Free Download Manager : reprise après coupure, plusieurs connexions HTTP en parallèle (`Range`), file
@@ -174,7 +174,7 @@ service d'hébergement de morceaux (D5). Un téléchargeur généraliste existe 
   `vault-core` (PR dédiée, après le chantier FUSE) ; un serveur HTTP de test local (Axum, déjà dans la stack)
   qui simule 206 / 200, coupures, `Retry-After`, octets corrompus et changement d'ETag ; `appfactory-impact.json`
   : `fetch` dépend de `core`, déclenche `cli`.
-- **Mesures à inscrire au banc** (candidate thèse H9, à proposer dans `docs/recherche/` si retenue) :
+- **Mesures inscrites au banc** (thèse H9, `docs/recherche/these-h9-telechargement.md` ; débit agrégé non bloquant, ADR-0008) :
   un morceau corrompu coûte au plus 1 morceau + 1 requête supplémentaire (jamais l'archive) ; une reprise
   après coupure retélécharge 0 octet déjà vérifié ; premier `read_range` servi avant la fin du téléchargement ;
   débit agrégé sur N connexions ≥ 0,9 × le débit de `curl` parallèle sur le même serveur local.

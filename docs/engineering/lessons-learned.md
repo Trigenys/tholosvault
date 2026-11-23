@@ -89,6 +89,29 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
 - **Leçon générale** : un banc qui conclut doit distinguer « mesuré et conforme » de « non mesurable
   ici », et l'environnement de référence doit exiger la mesure plutôt que la tolérer.
 
+### I-004 — Une relance cachée du client HTTP masque les coupures que le banc doit compter (near miss, 2026-11-20)
+
+- **Contexte** : `vault-fetch` compte les coupures, les relances par segment et les requêtes émises
+  (métriques H9a). Le test « coupure à mi-segment puis reprise » attendait un arrêt avec
+  `max_segment_attempts = 1` ; la passe finissait verte, `cuts: 0`, 11 requêtes comptées côté client
+  pour 12 vues par le serveur.
+- **Cause racine** : deux effets superposés. Côté serveur, hyper lit le flux de réponse avant d'écrire
+  l'en-tête : un flux `[Ok(1000 octets), Err]` échoue avant qu'un seul octet ne parte, et le client voit
+  une connexion fermée sans réponse (« NACK de protocole »). Côté client, reqwest 0.13 installe par
+  défaut une couche de relance qui réémet ce type de requête sans le dire : la deuxième requête
+  réussissait et le téléchargeur n'avait jamais vu de coupure.
+- **Résolution** : l'adaptateur construit le client avec `reqwest::retry::never()` (les relances sont
+  les siennes : visibles, comptées, bornées par `RetryPolicy`) ; le serveur de test cède la main
+  (`sleep` 20 ms) entre les octets servis et la réinitialisation pour que la coupure atteigne le client
+  à mi-corps.
+- **Prévention vérifiable** : `resume_after_cut_redownloads_zero_verified_bytes` et
+  `remote_change_during_resume_is_refused` (`crates/vault-fetch-http/tests/h9.rs`) échouent si une relance
+  implicite réapparaît (la passe deviendrait verte au lieu de s'arrêter) ; le banc H9 exige
+  `Err(SegmentExhausted)` sur la coupure.
+- **Leçon générale** : un adaptateur réseau dont on mesure les relances doit désactiver celles de sa
+  bibliothèque, et une panne simulée se vérifie du point de vue du client (journal serveur **et**
+  compteurs client doivent coïncider), pas seulement du côté qui l'injecte.
+
 ## Réfutations consignées par le banc
 
 ### B-001 — H5 : coût de construction de la parité (2026-11-16)
