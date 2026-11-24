@@ -554,3 +554,9 @@
 - Vérifié en local : `cargo fmt --check`, clippy `-D warnings` (workspace et vault-mount), tests
   workspace et `vault-mount --features winfsp` verts. Poussé en force (lease) ; CI à attendre
   (impact, rust ubuntu/windows, bench ci). **Ne pas fusionner** : décision de l'utilisateur.
+
+## 2026-11-24 08:33 — PR #11 poussée (4499aeb)
+
+- Branche `feat/vault-mount-winfsp` poussée en force (lease sur 089cb72) : distant = 4499aeb, rebasé sur ec2ddf8.
+- CI à surveiller : impact, rust ubuntu/windows, bench ci (artefact `bench-ci-windows` = première exécution de référence sur trois, ADR-0007).
+- Prochaine étape : lire la CI ; si verte, la fusion reste la décision de l'utilisateur. Rien à relancer en local.
