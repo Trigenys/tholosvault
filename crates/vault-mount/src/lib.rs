@@ -344,9 +344,10 @@ pub fn mount(
     }
     #[cfg(all(windows, feature = "winfsp"))]
     {
-        let session = winfsp::spawn(fs, mountpoint, opts)?;
+        let session = winfsp::spawn(fs.clone(), mountpoint, opts)?;
         Ok(MountHandle {
             inner: handle::Inner::WinFsp(Some(session)),
+            fs,
         })
     }
     #[cfg(not(any(

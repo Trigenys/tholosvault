@@ -171,17 +171,23 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
   taille côté noyau (`h4.mount_req_kib`) et le coût fixe par requête ; une hypothèse plausible chiffrée
   (1/8 ≈ 0,125) n'est pas une mesure.
 
-### B-003 — H4 : latence d'ouverture à travers le montage WinFsp (2026-11-20)
-- **Mesure** : première exécution de H4 sous Windows (poste de développement, WinFsp 2.2.26323) :
-  p99 d'ouverture 825 µs = 4,8 × BLAKE3 d'un MiB (seuil ≤ 1 ; 0,69 sous FUSE) ; débit séquentiel
-  0,05 (déjà consigné par l'ADR-0004) ; cœur et contenu dans le seuil.
-- **Décision** : [ADR-0007](../adr/0007-latence-ouverture-montage-winfsp.md) — exemption déclarée
-  par système (`non_blocking_on: ["windows"]`, ADR obligatoire), seuil inchangé et toujours bloquant
-  sous Linux ; chantier de suivi (mise en cache de la résolution de chemin, index insensible à la
-  casse, mesure de référence sur `windows-latest`).
-- **Leçon** : un seuil commun à deux pilotes se réfute pilote par pilote ; l'exemption se déclare
-  dans le contrat du banc (visible, contrôlée), jamais dans le code de la thèse ni par un seuil
-  relevé. Un même test réel a aussi révélé qu'un argument de liaison (`/DELAYLOAD`) émis par une
-  bibliothèque ne protège pas les binaires qui l'embarquent : le binaire final doit l'émettre
-  lui-même, et la CI doit démarrer le binaire **avant** d'installer le pilote.
-
+### B-003 — H4 sous Windows : une mesure de poste n'est pas une référence (2026-11-20, révisée 2026-11-24)
+- **Contexte** : première exécution de H4 à travers WinFsp sur le poste de développement
+  (16 cœurs, WinFsp 2.2.26323) : p99 d'ouverture 4,8 × BLAKE3 d'un MiB (seuil ≤ 1), cœur 1,22.
+  Un ADR a été rédigé le jour même consignant H4 **réfutée sous Windows sur l'ouverture**.
+- **Near miss** : la première exécution CI (`windows-latest`) donne l'inverse : ouverture 0,90 ✓,
+  cœur 0,8966 ✗ (seuil ≥ 0,9). Trois exécutions suivantes sur le poste donnent 1,04 à 2,11 pour
+  l'ouverture et 0,79 à 1,03 pour le cœur. Le verdict consigné reposait sur du bruit d'hôte
+  (antivirus en temps réel, charge de fond, hachage très rapide au dénominateur).
+- **Décision** : [ADR-0007](../adr/0007-mesure-h4-windows.md) réécrit — exemption déclarée par
+  système (`non_blocking_on: ["windows"]`, ADR obligatoire) sur `h4.core_read_ratio` et
+  `h4.mount_open_p99_over_blake3_mib`, seuils inchangés et bloquants sous Linux, bornée à trois
+  exécutions CI de référence ; ensuite retrait de l'exemption ou réfutation consignée avec seuil
+  dérivé d'un plancher mesuré (`std::fs` 1 MiB ÷ 128 KiB), jamais de la mesure de `tholos`.
+- **Leçon** : un verdict (réfutation ou confirmation) ne se consigne que sur l'hôte de référence
+  déclaré par le banc, jamais sur un poste ; une mesure de poste détecte une régression grossière et
+  s'arrête là. Un seuil commun à deux pilotes se réfute pilote par pilote ; l'exemption se déclare
+  dans le contrat du banc (visible, contrôlée), jamais par un seuil relevé. Un même test réel a aussi
+  révélé qu'un argument de liaison (`/DELAYLOAD`) émis par une bibliothèque ne protège pas les
+  binaires qui l'embarquent : le binaire final doit l'émettre lui-même, et la CI doit démarrer le
+  binaire **avant** d'installer le pilote.

@@ -397,7 +397,7 @@ fn mount_target(mountpoint: &Path) -> Result<String, MountError> {
 }
 
 pub(crate) fn spawn(
-    fs: VaultFs,
+    fs: Arc<VaultFs>,
     mountpoint: &Path,
     opts: &MountOptions,
 ) -> Result<Session, MountError> {
@@ -442,7 +442,7 @@ pub(crate) fn spawn(
         .filesystem_name(VOLUME_LABEL);
 
     let ctx = WinFspFs {
-        fs: Arc::new(fs),
+        fs,
         security,
         mtime,
     };

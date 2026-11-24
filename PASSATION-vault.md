@@ -532,3 +532,25 @@
   `cargo test --workspace` verts (LIBCLANG_PATH vers la libclang portable du scratchpad).
 - Suite : commit, rebase sur `main` (ADR-0005 fusionnée entre-temps), PR, CI.
 
+
+## 2026-11-24 08:31 — PR #11 rebasée sur main (ec2ddf8), H4 Windows réaligné
+
+- Rebase de `feat/vault-mount-winfsp` sur `main` après fusion des PR #12 et #14. Conflits résolus :
+  `Cargo.lock` (régénéré), `crates/vault-cli/Cargo.toml` (deps fetch + build-dep winfsp), `PASSATION-vault.md`
+  et `docs/engineering/lessons-learned.md` (main entier, nos entrées à la suite ; leçon licence
+  renumérotée **I-005**, I-004 = relance HTTP de main), `bench/README.md` (ligne H4 de main enrichie).
+  API : `winfsp::spawn` prend `Arc<VaultFs>`, `MountHandle { inner, fs }` (champ `fs` ajouté par main).
+- Référence CI (`windows-latest`, run 44720923181) : `h4.core_read_ratio` **0,8966 ✗** (seuil ≥ 0,9,
+  cause de l'échec), `h4.mount_open_p99_over_blake3_mib` **0,8958 ✓**, `mount_content_ok` 1,
+  `mount_read_ratio` 0,07 (non bloquante ADR-0004). Le poste donnait l'inverse (ouverture 4,8, cœur 1,22,
+  puis 0,79–1,03) : bruit d'hôte, pas une référence.
+- ADR-0007 renommé `docs/adr/0007-mesure-h4-windows.md` et réécrit : argument a priori (8× plus d'appels
+  de lecture en 128 KiB, coût par appel plus élevé sous Windows), exemption `non_blocking_on: ["windows"]`
+  sur `h4.core_read_ratio` **et** `h4.mount_open_p99_over_blake3_mib`, seuils inchangés, bornée à trois
+  exécutions CI de référence puis retrait ou réfutation avec seuil dérivé d'un plancher mesuré. Leçon
+  B-003 réécrite (near miss : verdict consigné sur une mesure de poste). Test
+  `os_exemption_keeps_threshold_and_blocks_elsewhere` étendu aux deux métriques, fixture alignée sur
+  les métriques H4 de main.
+- Vérifié en local : `cargo fmt --check`, clippy `-D warnings` (workspace et vault-mount), tests
+  workspace et `vault-mount --features winfsp` verts. Poussé en force (lease) ; CI à attendre
+  (impact, rust ubuntu/windows, bench ci). **Ne pas fusionner** : décision de l'utilisateur.

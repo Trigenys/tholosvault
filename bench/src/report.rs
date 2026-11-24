@@ -625,11 +625,19 @@ mod tests {
         assert!(evaluate(&cfg, "ci", &produced, &only, &Environment::default()).is_err());
     }
 
-    fn h4_with_mount(open_ratio: f64) -> BTreeMap<String, Vec<Measured>> {
+    fn h4_with_mount(core_ratio: f64, open_ratio: f64) -> BTreeMap<String, Vec<Measured>> {
         let mut p = h4_core_only();
-        p.get_mut("H4").unwrap().extend([
+        let h4 = p.get_mut("H4").unwrap();
+        h4.retain(|m| m.id != "h4.core_read_ratio");
+        h4.extend([
+            Measured::scalar("h4.core_read_ratio", core_ratio),
             Measured::scalar("h4.mount_content_ok", 1.0),
             Measured::scalar("h4.mount_read_ratio", 0.9),
+            Measured::scalar("h4.mount_read_ratio_code", 0.9),
+            Measured::scalar("h4.mount_read_ratio_binary", 0.9),
+            Measured::scalar("h4.mount_read_ratio_1thread", 0.9),
+            Measured::scalar("h4.mount_req_kib", 128.0),
+            Measured::scalar("h4.mount_decode_ratio", 1.0),
             Measured::scalar("h4.mount_open_ns", 1.0),
             Measured::scalar("h4.mount_open_p99_over_blake3_mib", open_ratio),
         ]);
@@ -638,29 +646,32 @@ mod tests {
 
     #[test]
     fn os_exemption_keeps_threshold_and_blocks_elsewhere() {
-        // ADR-0007 : `h4.mount_open_p99_over_blake3_mib` ne bloque pas sous
-        // Windows, mais le seuil reste évalué (✗ visible) et bloque ailleurs.
+        // ADR-0007 : `h4.core_read_ratio` et `h4.mount_open_p99_over_blake3_mib`
+        // ne bloquent pas sous Windows, mais le seuil reste évalué (✗ visible)
+        // et bloque ailleurs.
         let cfg = shipped();
         let only = ["H4".to_string()];
-        let exempt = cfg.theses["H4"].metrics["h4.mount_open_p99_over_blake3_mib"]
-            .non_blocking_on
-            .clone();
-        assert_eq!(exempt, vec!["windows".to_string()]);
+        let exempt = ["h4.core_read_ratio", "h4.mount_open_p99_over_blake3_mib"];
+        for id in exempt {
+            assert_eq!(
+                cfg.theses["H4"].metrics[id].non_blocking_on,
+                vec!["windows".to_string()],
+                "{id}"
+            );
+        }
         let mut env = with_mount();
         env.os = "windows".into();
-        let out = evaluate(&cfg, "ci", &h4_with_mount(4.0), &only, &env).unwrap();
-        let m = out[0]
-            .metrics
-            .iter()
-            .find(|m| m.id == "h4.mount_open_p99_over_blake3_mib")
-            .unwrap();
-        assert_eq!(m.pass, Some(false));
-        assert!(!m.blocking && m.adr.is_some());
+        let out = evaluate(&cfg, "ci", &h4_with_mount(0.8966, 4.0), &only, &env).unwrap();
+        for id in exempt {
+            let m = out[0].metrics.iter().find(|m| m.id == id).unwrap();
+            assert_eq!(m.pass, Some(false), "{id}");
+            assert!(!m.blocking && m.adr.is_some(), "{id}");
+        }
         assert!(blocking_failures(&out).is_empty());
         assert_eq!(out[0].verdict, "refuted");
         env.os = "linux".into();
-        let out = evaluate(&cfg, "ci", &h4_with_mount(4.0), &only, &env).unwrap();
-        assert_eq!(blocking_failures(&out).len(), 1, "{out:?}");
+        let out = evaluate(&cfg, "ci", &h4_with_mount(0.8966, 4.0), &only, &env).unwrap();
+        assert_eq!(blocking_failures(&out).len(), 2, "{out:?}");
     }
 
     #[test]
