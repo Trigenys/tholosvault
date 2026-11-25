@@ -4,13 +4,18 @@
   "tool": {
     "vault_core": "0.1.0",
     "zstd": 10507,
-    "git_rev": "e0bff45"
+    "git_rev": "78aa77a"
   },
   "host": {
-    "os": "windows",
+    "os": "linux",
     "arch": "x86_64",
-    "cpus": 16,
-    "calib_blake3_ns_per_mib": 181700
+    "cpus": 4,
+    "calib_blake3_ns_per_mib": 130126,
+    "capabilities": [
+      "curl",
+      "fuse",
+      "mount"
+    ]
   },
   "corpus": [
     {
@@ -320,10 +325,10 @@
         },
         {
           "id": "h3.find_ns",
-          "value": 2100.0,
+          "value": 1712.0,
           "unit": "ns",
-          "p50": 600.0,
-          "p99": 2100.0,
+          "p50": 840.0,
+          "p99": 1712.0,
           "samples": 20000,
           "threshold": null,
           "blocking": false,
@@ -331,7 +336,7 @@
         },
         {
           "id": "h3.find_p99_over_blake3_mib",
-          "value": 0.011557512383048982,
+          "value": 0.013156479104867589,
           "unit": "ratio",
           "p50": null,
           "p99": null,
@@ -359,7 +364,7 @@
         },
         {
           "id": "h3.open_ns_per_file",
-          "value": 368.0,
+          "value": 56.7395,
           "unit": "ns",
           "p50": null,
           "p99": null,
@@ -370,7 +375,7 @@
         },
         {
           "id": "h3.open_scaling",
-          "value": 8.003532608695652,
+          "value": 13.776037857224685,
           "unit": "x",
           "p50": null,
           "p99": null,
@@ -384,10 +389,10 @@
         },
         {
           "id": "h3.read4k_ns",
-          "value": 406100.0,
+          "value": 227609.0,
           "unit": "ns",
-          "p50": 37100.0,
-          "p99": 406100.0,
+          "p50": 43747.0,
+          "p99": 227609.0,
           "samples": 20000,
           "threshold": null,
           "blocking": false,
@@ -397,12 +402,186 @@
     },
     {
       "id": "H4",
-      "title": "Un montage FUSE/WinFsp lit à la vitesse du décodeur",
-      "status": "not_measured",
-      "reason": "vault-mount n'existe pas encore",
-      "prerequisite": "crate vault-mount (surface mount)",
-      "verdict": "n/a",
-      "metrics": []
+      "title": "Le cœur d'un montage lit à la vitesse du décodeur ; à travers le noyau (FUSE/WinFsp), le débit est borné par la latence par requête",
+      "status": "measured",
+      "reason": null,
+      "prerequisite": null,
+      "verdict": "refuted",
+      "metrics": [
+        {
+          "id": "h4.core_concurrent_decode_ratio",
+          "value": 1.0,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 1.05
+          },
+          "blocking": true,
+          "pass": true,
+          "source": "décodages de morceaux ÷ morceaux de l'archive sous la lecture concurrente du cœur (1 = chaque morceau décodé une fois, vol unique)"
+        },
+        {
+          "id": "h4.core_concurrent_read_ratio",
+          "value": 2.585457872546781,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null,
+          "source": "lecture directe ÷ cœur vault-mount servi en requêtes de 128 KiB par h4.threads fils, fenêtre de 1 MiB par fenêtre (profil du noyau)"
+        },
+        {
+          "id": "h4.core_read_ratio",
+          "value": 0.9456253597850769,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": ">=",
+            "value": 0.9
+          },
+          "blocking": true,
+          "pass": true,
+          "adr": "docs/adr/0007-mesure-h4-windows.md",
+          "source": "lecture séquentielle de vault-core (1 MiB) ÷ lecture par VaultFs en requêtes de 128 KiB, cache froid"
+        },
+        {
+          "id": "h4.mount_content_ok",
+          "value": 1.0,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "==",
+            "value": 1.0
+          },
+          "blocking": true,
+          "pass": true,
+          "source": "BLAKE3 de chaque fichier lu à travers le noyau égal à celui du corpus, sur toutes les passes"
+        },
+        {
+          "id": "h4.mount_decode_ratio",
+          "value": 1.0,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null,
+          "source": "décodages de morceaux ÷ morceaux de l'archive pendant la lecture par le noyau (1 = chaque morceau décodé une fois)"
+        },
+        {
+          "id": "h4.mount_open_ns",
+          "value": 79091.0,
+          "unit": "ns",
+          "p50": 27795.0,
+          "p99": 79091.0,
+          "samples": 2000,
+          "threshold": null,
+          "blocking": false,
+          "pass": null,
+          "source": "p99 de File::open sur des chemins aléatoires du corpus small1 monté"
+        },
+        {
+          "id": "h4.mount_open_p99_over_blake3_mib",
+          "value": 0.6078032061232959,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 1.0
+          },
+          "blocking": true,
+          "pass": true,
+          "adr": "docs/adr/0007-mesure-h4-windows.md"
+        },
+        {
+          "id": "h4.mount_read_ratio",
+          "value": 0.25910268452040014,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": ">=",
+            "value": 0.7
+          },
+          "blocking": false,
+          "pass": false,
+          "adr": "docs/adr/0004-debit-lecture-montage-fuse.md",
+          "source": "lecture séquentielle de vault-core (alternée, juste avant chaque passe) ÷ lecture std::fs du montage au parallélisme disponible (médiane de 3 passes)"
+        },
+        {
+          "id": "h4.mount_read_ratio_1thread",
+          "value": 0.2671292852488227,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null,
+          "source": "même ratio avec un seul fil de service FUSE (--threads 1)"
+        },
+        {
+          "id": "h4.mount_read_ratio_binary",
+          "value": 0.3839030016841187,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null,
+          "source": "même ratio sur le seul corpus binary (fichiers de 4 KiB à 2 MiB : débit en flux)"
+        },
+        {
+          "id": "h4.mount_read_ratio_code",
+          "value": 0.23104738092436747,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null,
+          "source": "même ratio sur le seul corpus code (fichiers de 1 à 64 KiB : coût des allers-retours par fichier)"
+        },
+        {
+          "id": "h4.mount_req_kib",
+          "value": 25.781274586939418,
+          "unit": "KiB",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null,
+          "source": "taille moyenne des requêtes de lecture reçues du noyau (octets servis ÷ appels)"
+        },
+        {
+          "id": "h4.threads",
+          "value": 4.0,
+          "unit": "threads",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null,
+          "source": "parallélisme disponible : fils du démon FUSE et de la lecture concurrente du cœur"
+        }
+      ]
     },
     {
       "id": "H5",
@@ -414,7 +593,7 @@
       "metrics": [
         {
           "id": "h5.blake3_s_per_gb",
-          "value": 0.17523956298828125,
+          "value": 0.16201114654541016,
           "unit": "s/GB",
           "p50": null,
           "p99": null,
@@ -425,7 +604,7 @@
         },
         {
           "id": "h5.build_s_per_gb",
-          "value": 0.37401485443115234,
+          "value": 0.22939491271972653,
           "unit": "s/GB",
           "p50": null,
           "p99": null,
@@ -436,7 +615,7 @@
         },
         {
           "id": "h5.build_vs_blake3",
-          "value": 2.1343060211589533,
+          "value": 1.4159205561540138,
           "unit": "x",
           "p50": null,
           "p99": null,
@@ -507,7 +686,7 @@
         },
         {
           "id": "h5.repair_s_per_gb",
-          "value": 2.612370252609253,
+          "value": 2.2434931993484493,
           "unit": "s/GB",
           "p50": null,
           "p99": null,
@@ -544,6 +723,95 @@
       "prerequisite": "hôte de mesure dédié (hors CI partagée)",
       "verdict": "n/a",
       "metrics": []
+    },
+    {
+      "id": "H9",
+      "title": "Téléchargement conscient du format : coût d'une corruption, reprise sans re-téléchargement, refus avant contenu, débit agrégé (ADR-0005)",
+      "status": "measured",
+      "reason": null,
+      "prerequisite": null,
+      "verdict": "refuted",
+      "metrics": [
+        {
+          "id": "h9.aggregate_throughput_ratio",
+          "value": 0.01813854597193241,
+          "unit": "x",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": ">=",
+            "value": 0.9
+          },
+          "blocking": false,
+          "pass": false,
+          "adr": "docs/adr/0008-debit-agrege-telechargement.md"
+        },
+        {
+          "id": "h9.corrupt_chunk_cost",
+          "value": 1.0,
+          "unit": "morceaux",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "<=",
+            "value": 1.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h9.curl_s_per_gb",
+          "value": 0.8218052510162968,
+          "unit": "s/GB",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        },
+        {
+          "id": "h9.fetch_s_per_gb",
+          "value": 45.30711845855553,
+          "unit": "s/GB",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": null,
+          "blocking": false,
+          "pass": null
+        },
+        {
+          "id": "h9.resume_rebytes",
+          "value": 0.0,
+          "unit": "B",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "==",
+            "value": 0.0
+          },
+          "blocking": true,
+          "pass": true
+        },
+        {
+          "id": "h9.root_mismatch_rejected",
+          "value": 1.0,
+          "unit": "ratio",
+          "p50": null,
+          "p99": null,
+          "samples": 1,
+          "threshold": {
+            "op": "==",
+            "value": 1.0
+          },
+          "blocking": true,
+          "pass": true
+        }
+      ]
     }
   ],
   "pass": true

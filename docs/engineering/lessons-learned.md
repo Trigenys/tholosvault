@@ -149,6 +149,24 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
 - **Leçon générale** : une tâche autonome vérifie d'abord qu'elle peut livrer, et prévoit où va son
   travail si elle ne le peut pas ; un droit manquant découvert à la fin peut coûter tout le travail.
 
+### I-007 — Une sortie écrite dans l'arbre qu'on lit finit par se lire elle-même (near miss, 2026-11-25)
+
+- **Contexte** : `tholos pack src src/out.vault` lancé deux fois. Au second passage, `out.vault`
+  (présent dans `src`) était collecté comme source puis tronqué et réécrit pendant sa propre lecture :
+  l'archive contenait `out.vault`, la racine changeait d'une exécution à l'autre (`d9ed…` puis `7a4f…`),
+  et un échec en cours de route détruisait l'archive précédente (ouverture avec `truncate`).
+- **Cause racine** : `pack_dir` ne distinguait pas sa sortie de ses entrées et écrivait la cible en
+  place ; la promesse de déterminisme (L-001) n'était testée que pour une cible hors de la source.
+- **Classification** : défaut de conception (idempotence, atomicité d'écriture).
+- **Résolution** : PR #21 — écriture dans `<cible>.tholos-tmp` puis renommage ; cible et temporaire
+  exclus de la source par chemin canonique ; temporaire supprimé en cas d'échec.
+- **Prévention vérifiable** : `crates/vault-core/tests/pack_atomic.rs` (reconstruction dans l'arbre
+  source à l'octet près, cible désignée par un autre chemin, temporaire orphelin, échec au renommage,
+  archive précédente intacte).
+- **Leçon générale** : toute opération qui lit un arbre et écrit un fichier doit exclure sa propre
+  sortie et n'exposer le nom final qu'une fois le fichier complet ; tester l'idempotence avec la sortie
+  **dans** l'entrée, pas seulement à côté.
+
 ## Réfutations consignées par le banc
 
 ### B-001 — H5 : coût de construction de la parité (2026-11-16)
