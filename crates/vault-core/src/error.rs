@@ -37,6 +37,9 @@ pub enum Error {
         detail: String,
     },
 
+    #[error("écriture de la sortie impossible : {0}")]
+    Output(#[source] std::io::Error),
+
     #[error("chemin absent de l'archive : {0}")]
     NotFound(String),
 
