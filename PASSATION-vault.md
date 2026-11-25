@@ -585,3 +585,30 @@
 - Reste : CI des trois PR à lire ; chaque PR est indépendante (ordre de fusion libre).
 - Prochain chantier conseillé : `tholos diff` / delta entre deux racines (H6, V1) sur la base de la
   table de hachage ; ou réplication de l'en-tête et des tables de CRC de la section de parité.
+
+## 2026-11-25 14:31 — Routine quotidienne : fetch depuis une source locale, xattr Merkle au montage, pack atomique
+
+- Deux exécutions de la routine ont tourné en parallèle ce jour. La première a livré #15 (extraction
+  sélective), #16 (`verify --quick`), #17 (`tholos info`) et #18 (passation) entre 14:08 et 14:14 ; la
+  seconde (celle-ci) l'a constaté au moment de pousser un `tholos info` en double, abandonné sans push.
+- Contrainte retenue : ne toucher aucun fichier des PR ouvertes (`vault-cli/src/main.rs`,
+  `vault-core/src/{lib,reader,error}.rs`, `Cargo.lock`, `vault-cli/Cargo.toml`, passation, leçons) ;
+  d'où trois chantiers sur fichiers libres, sans nouvelle sous-commande ni nouvelle dépendance :
+  - #19 https://github.com/Trigenys/tholosvault/pull/19 — `tholos fetch` depuis un chemin local ou
+    `file://` (`vault-fetch::FileTransport`, garde-fou destination = source) ; doc `docs/cli/fetch.md`.
+  - #20 https://github.com/Trigenys/tholosvault/pull/20 — `vault-mount` : `user.tholos.root`,
+    `user.tholos.chunks`, `user.tholos.archive_root` en attributs étendus FUSE ; test noyau réel
+    (`fuse_mount -- --ignored`) vert en local après installation de `fuse3`.
+  - #21 https://github.com/Trigenys/tholosvault/pull/21 — `pack_dir` atomique (temporaire puis
+    renommage) et idempotent (cible exclue de la source) ; quasi-incident consigné en I-007.
+- Preuves : chaque branche seule — fmt OK, clippy `-D warnings` 0, tests verts (110 / 103 / 106) ;
+  fusion d'essai octopus de #15–#21 sans conflit : 145 tests verts, clippy 0, fmt OK.
+  Banc `ci` sur #21 : sortie 0, seuils bloquants verts (`h5.build_vs_blake3` 1,42 ≤ 3) ; non
+  bloquants déjà connus (`h4.mount_read_ratio` 0,26, ADR-0004 ; `h9.aggregate_throughput_ratio`
+  0,02, ADR-0008). Aucun seuil modifié.
+- Cette PR de passation est empilée sur `chore/passation-2026-11-25` (#18) pour éviter un conflit
+  d'ajout en fin de fichier ; à fusionner après #18 (son diff se réduit alors à cette entrée et I-007).
+- Reste : `--help` de `tholos fetch` à compléter (« URL ou chemin local ») une fois #15–#17 fusionnées
+  (`main.rs`) ; attributs étendus sous WinFsp (EA) non faits.
+- Prochain chantier conseillé : `tholos diff` / aperçu delta entre deux racines (H6, seule thèse
+  « pas de commande delta » au banc) une fois `main.rs` libéré ; puis `vault-api` (Axum, lecture seule).
