@@ -19,6 +19,7 @@ pub mod merkle;
 pub mod parity;
 pub mod path;
 pub mod reader;
+pub mod summary;
 pub mod writer;
 
 pub use cache::{CacheStats, ChunkCache};
@@ -30,4 +31,5 @@ pub use reader::{
     parse_archive_tables, read_trailer_tail, repair_file, scan_file, verify_chunk_frame, Archive,
     ArchiveTables, ChunkEntry, FileEntry, RepairReport, VerifyReport,
 };
+pub use summary::ArchiveSummary;
 pub use writer::{pack_dir, PackOptions, PackSummary};

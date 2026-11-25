@@ -2,6 +2,7 @@
 
 mod extract;
 mod fetch;
+mod info;
 
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -122,6 +123,14 @@ enum Cmd {
         /// Pas de progression sur stderr.
         #[arg(long, short)]
         quiet: bool,
+    },
+    /// Résume une archive sans rien décompresser : format, codec, taille
+    /// logique, déduplication, métadonnées, parité, ratio et racine.
+    Info {
+        archive: PathBuf,
+        /// Sortie JSON (schéma `tholos-info/1`) pour les scripts et les apps.
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -312,6 +321,7 @@ fn main() -> Result<()> {
             restart,
             quiet,
         })?,
+        Cmd::Info { archive, json } => info::run(&archive, json)?,
     }
     Ok(())
 }
