@@ -20,6 +20,7 @@ let st = fs.statfs();
 
 - `VaultFs::open` / `from_archive` construisent l'arbre une fois ; `archive()` donne accès au lecteur.
 - `getattr`, `lookup`, `resolve`, `readdir(ino, offset)` (reprise à un décalage), `read`, `statfs`.
+- `xattr_names(ino)`, `xattr(ino, name)` : empreintes lues dans l'index (voir « Attributs étendus »).
 - Erreurs `FsError` : `NotFound`, `NotDir`, `IsDir`, `Corrupt(_)` (un morceau dont le hachage ne
   correspond pas n'est **jamais** servi : erreur d'E/S côté noyau).
 - Cache de morceaux décodés (`CACHE_CHUNKS` = 16) partagé par tous les lecteurs.
@@ -44,6 +45,26 @@ handle.unmount()?;
 
 Sans adaptateur compilé pour la cible, `probe()` et `mount()` renvoient `MountError::NotCompiled`
 avec la marche à suivre ; `tholos mount` affiche ce message et sort en erreur.
+
+### Attributs étendus (Linux, FUSE)
+
+Le montage expose en lecture les empreintes de l'index, sans décompression :
+
+| Attribut | Nœud | Valeur |
+|---|---|---|
+| `user.tholos.root` | fichier | racine Merkle BLAKE3 du fichier (hex, 64 caractères) |
+| `user.tholos.chunks` | fichier | nombre de morceaux référencés |
+| `user.tholos.archive_root` | tout nœud | racine de l'archive montée |
+
+```sh
+getfattr -n user.tholos.root /mnt/jeux/data/niveau1.pak   # empreinte sans lire le fichier
+getfattr -d -m '^user\.tholos\.' /mnt/jeux                 # racine de l'archive
+```
+
+Deux fichiers de même `user.tholos.root` ont le même contenu, y compris d'une archive à l'autre :
+un script compare deux versions montées sans lire un octet de contenu. Les valeurs sont celles que
+l'index déclare ; `tholos verify` les contrôle contre les données. Attribut absent : `ENODATA`.
+Sous Windows (WinFsp), les attributs étendus ne sont pas encore exposés.
 
 ### Prérequis Linux
 
@@ -81,8 +102,8 @@ Si le binaire n'est pas dans `PATH`/`/usr/sbin`, pointer `FUSERMOUNT_PATH` dessu
 
 - `cargo test -p vault-mount` : cœur sans pilote (arbre, attributs, lectures par morceaux, morceau
   corrompu refusé, sonde explicite). Tourne partout.
-- `cargo test -p vault-mount --test fuse_mount -- --ignored` : montage réel sous Linux (`#[ignore]`
-  hors CI ubuntu, qui l'exécute).
+- `cargo test -p vault-mount --test fuse_mount -- --ignored` : montage réel sous Linux, lecture et
+  attributs étendus via `getxattr(2)`/`listxattr(2)` (`#[ignore]` hors CI ubuntu, qui l'exécute).
 - `cargo test -p vault-mount --features winfsp --test winfsp_mount -- --ignored` : montage réel sous
   Windows (`#[ignore]` ; la CI windows installe WinFsp 2.2.26323 et l'exécute).
 - Le banc (`bench/`, thèse H4) mesure le cœur partout et le montage réel là où l'hôte a un pilote.
