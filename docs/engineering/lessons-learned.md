@@ -131,6 +131,24 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
   comparer leur licence, car une dépendance se change plus facilement avant que son API ne soit
   épousée par le code.
 
+### I-006 — Une routine planifiée découvre un refus d'écriture après avoir codé (near miss, 2026-11-25)
+
+- **Contexte** : routine quotidienne (trois fonctionnalités, une PR chacune). La première branche
+  commitée, le premier `git push` a été refusé (HTTP 403 du proxy git de la session : « no GitHub
+  access … for your organization »), de même que la création de branche par l'API. Le travail a
+  continué en local ; un nouvel essai en fin de séance a réussi et les PR ont été ouvertes.
+- **Cause racine** : l'accès en écriture de l'intégration au dépôt n'est contrôlé qu'au moment du
+  push, et il peut être absent par intermittence ; la routine ne le vérifiait pas avant d'engager le
+  travail et n'avait pas prévu de repli pour conserver ce qui n'aurait pas pu partir.
+- **Classification** : outillage / exploitation.
+- **Résolution** : notification immédiate (cause et remède : installer ou relier l'application
+  GitHub de l'organisation), bundle git préparé, nouvel essai de push avant la clôture.
+- **Prévention vérifiable** : en tête de routine, `git push --dry-run origin HEAD:refs/heads/<branche>` ;
+  en cas de refus, notifier, puis réessayer avant la clôture ; si le refus persiste, remettre un
+  bundle git et les corps de PR au propriétaire plutôt que de laisser le travail dans le conteneur.
+- **Leçon générale** : une tâche autonome vérifie d'abord qu'elle peut livrer, et prévoit où va son
+  travail si elle ne le peut pas ; un droit manquant découvert à la fin peut coûter tout le travail.
+
 ## Réfutations consignées par le banc
 
 ### B-001 — H5 : coût de construction de la parité (2026-11-16)

@@ -560,3 +560,28 @@
 - Branche `feat/vault-mount-winfsp` poussée en force (lease sur 089cb72) : distant = 4499aeb, rebasé sur ec2ddf8.
 - CI à surveiller : impact, rust ubuntu/windows, bench ci (artefact `bench-ci-windows` = première exécution de référence sur trois, ADR-0007).
 - Prochaine étape : lire la CI ; si verte, la fusion reste la décision de l'utilisateur. Rien à relancer en local.
+
+## 2026-11-25 14:13 — Routine quotidienne : extraction sélective en flux, verify --quick, tholos info
+
+- Base : `main` eb11801 (PR #11 fusionnée). Aucune PR ouverte au départ.
+- Trois fonctionnalités MVP CLI (cadrage §7 : « Extraire un fichier », « Vérifier l'intégrité » ;
+  §4.1 « Bibliothèque » et « Vérifier rapide ») sur trois branches disjointes, chacune verte seule
+  et fusionnable avec les deux autres sans conflit (fusion d'essai : 129 tests, 0 échec) :
+  - `feat/extraction-selective-flux` (8ccf572) : `Archive::select`, `Archive::write_file_to`
+    (mémoire bornée par un morceau), `tholos extract <archive> <rép> [chemin…]`, écriture
+    `.tholos-part` puis renommage ; `docs/cli/extract.md`.
+  - `feat/verification-rapide` (c6e77f3) : `Archive::verify_quick(sample)` (racines, CRC32C de tous
+    les shards, échantillon déterministe, escalade vers `verify` au premier shard abîmé),
+    `tholos verify --quick [--sample N]` ; `docs/cli/verify.md`.
+  - `feat/tholos-info` (3d074b1) : `Archive::summary()` / `ArchiveSummary`, `tholos info [--json]`
+    (schéma `tholos-info/1`) ; `docs/cli/info.md`.
+- PR : #15 https://github.com/Trigenys/tholosvault/pull/15 (extraction),
+  #16 https://github.com/Trigenys/tholosvault/pull/16 (verify --quick),
+  #17 https://github.com/Trigenys/tholosvault/pull/17 (info). Aucune fusionnée : décision du propriétaire.
+- Incident : premier push refusé (403, « no GitHub access … for your organization »), création de
+  branche par l'API refusée aussi ; propriétaire notifié ; nouvel essai réussi en fin de séance.
+  Leçon I-006.
+- Bench : non concerné (aucune métrique ni seuil touché, `verify` complet inchangé).
+- Reste : CI des trois PR à lire ; chaque PR est indépendante (ordre de fusion libre).
+- Prochain chantier conseillé : `tholos diff` / delta entre deux racines (H6, V1) sur la base de la
+  table de hachage ; ou réplication de l'en-tête et des tables de CRC de la section de parité.
