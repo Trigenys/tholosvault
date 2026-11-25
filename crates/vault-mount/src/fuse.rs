@@ -12,7 +12,8 @@ use std::time::Duration;
 use fuser::{
     BackgroundSession, Config, Errno, FileAttr, FileHandle, FileType, Filesystem, FopenFlags,
     Generation, INodeNo, InitFlags, KernelConfig, LockOwner, MountOption, OpenAccMode, OpenFlags,
-    ReplyAttr, ReplyData, ReplyDirectory, ReplyEntry, ReplyOpen, ReplyStatfs, Request, SessionACL,
+    ReplyAttr, ReplyData, ReplyDirectory, ReplyEntry, ReplyOpen, ReplyStatfs, ReplyXattr, Request,
+    SessionACL,
 };
 
 use crate::{Attr, FsError, MountError, MountOptions, NodeKind, VaultFs};
@@ -44,6 +45,21 @@ fn errno(e: FsError) -> Errno {
         FsError::NotDir => Errno::ENOTDIR,
         FsError::IsDir => Errno::EISDIR,
         FsError::Corrupt(_) => Errno::EIO,
+    }
+}
+
+/// Protocole xattr : `size == 0` demande la taille ; sinon la valeur doit
+/// tenir dans `size` octets, faute de quoi `ERANGE`.
+fn reply_xattr(reply: ReplyXattr, size: u32, value: &[u8]) {
+    let Ok(len) = u32::try_from(value.len()) else {
+        return reply.error(Errno::ERANGE);
+    };
+    if size == 0 {
+        reply.size(len);
+    } else if len <= size {
+        reply.data(value);
+    } else {
+        reply.error(Errno::ERANGE);
     }
 }
 
@@ -171,6 +187,31 @@ impl Filesystem for FuseFs {
                     }
                 }
                 reply.ok();
+            }
+            Err(e) => reply.error(errno(e)),
+        }
+    }
+
+    fn getxattr(&self, _req: &Request, ino: INodeNo, name: &OsStr, size: u32, reply: ReplyXattr) {
+        let Some(name) = name.to_str() else {
+            return reply.error(Errno::NO_XATTR);
+        };
+        match self.fs.xattr(ino.0, name) {
+            Ok(Some(v)) => reply_xattr(reply, size, v.as_bytes()),
+            Ok(None) => reply.error(Errno::NO_XATTR),
+            Err(e) => reply.error(errno(e)),
+        }
+    }
+
+    fn listxattr(&self, _req: &Request, ino: INodeNo, size: u32, reply: ReplyXattr) {
+        match self.fs.xattr_names(ino.0) {
+            Ok(names) => {
+                let mut list = Vec::new();
+                for n in names {
+                    list.extend_from_slice(n.as_bytes());
+                    list.push(0);
+                }
+                reply_xattr(reply, size, &list);
             }
             Err(e) => reply.error(errno(e)),
         }

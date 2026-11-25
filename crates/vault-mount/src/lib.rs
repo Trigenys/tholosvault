@@ -34,6 +34,13 @@ use tree::{Kind, Tree};
 pub type Ino = u64;
 pub const ROOT_INO: Ino = 1;
 
+/// Attribut étendu : racine Merkle d'un fichier (hex).
+pub const XATTR_ROOT: &str = "user.tholos.root";
+/// Attribut étendu : nombre de morceaux d'un fichier.
+pub const XATTR_CHUNKS: &str = "user.tholos.chunks";
+/// Attribut étendu : racine de l'archive montée (hex), sur tout nœud.
+pub const XATTR_ARCHIVE_ROOT: &str = "user.tholos.archive_root";
+
 /// Morceaux décompressés gardés en mémoire (LRU) pour servir les lectures
 /// séquentielles découpées par le noyau sans redécompresser. Dimensionné pour
 /// une fenêtre de lecture anticipée de 1 MiB (jusqu'à 16 morceaux de 64 KiB)
@@ -230,6 +237,37 @@ impl VaultFs {
                 Ok(n)
             }
         }
+    }
+
+    /// Noms des attributs étendus exposés par le nœud `ino`, dans un ordre
+    /// stable : voir [`VaultFs::xattr`].
+    pub fn xattr_names(&self, ino: Ino) -> Result<&'static [&'static str], FsError> {
+        let node = self.tree.node(ino).ok_or(FsError::NotFound)?;
+        Ok(match node.kind {
+            Kind::File { .. } => &[XATTR_ROOT, XATTR_CHUNKS, XATTR_ARCHIVE_ROOT],
+            Kind::Dir { .. } => &[XATTR_ARCHIVE_ROOT],
+        })
+    }
+
+    /// Valeur d'un attribut étendu, lue dans l'index sans décompression :
+    /// - `user.tholos.root` (fichier) : racine Merkle BLAKE3 du fichier, en hex ;
+    ///   deux fichiers de même racine ont le même contenu, d'une archive à l'autre ;
+    /// - `user.tholos.chunks` (fichier) : nombre de morceaux référencés ;
+    /// - `user.tholos.archive_root` (tout nœud) : racine de l'archive montée.
+    ///
+    /// Les valeurs sont celles déclarées par l'index ; `tholos verify` les
+    /// contrôle contre le contenu. `Ok(None)` : attribut absent de ce nœud.
+    pub fn xattr(&self, ino: Ino, name: &str) -> Result<Option<String>, FsError> {
+        let node = self.tree.node(ino).ok_or(FsError::NotFound)?;
+        let hex = vault_core::merkle::to_hex;
+        Ok(match (name, &node.kind) {
+            (XATTR_ARCHIVE_ROOT, _) => Some(hex(self.archive.archive_root())),
+            (XATTR_ROOT, Kind::File { file }) => Some(hex(&self.archive.files()[*file].root)),
+            (XATTR_CHUNKS, Kind::File { file }) => {
+                Some(self.archive.files()[*file].chunks.len().to_string())
+            }
+            _ => None,
+        })
     }
 
     pub fn statfs(&self) -> StatFs {
