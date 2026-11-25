@@ -7,10 +7,14 @@ license.workspace = true
 repository.workspace = true
 # vault-mount (fuser 0.18) impose 1.85 ; voir crates/vault-mount/README.md.
 rust-version = "1.85"
+build = "build.rs"
 
+# Chaque adaptateur est inerte hors de son OS (dépendance sous cfg dans
+# vault-mount) : les activer tous deux donne le bon pilote sur chaque cible.
 [features]
-default = ["fuse"]
+default = ["fuse", "winfsp"]
 fuse = ["vault-mount/fuse"]
+winfsp = ["vault-mount/winfsp", "dep:winfsp"]
 
 [[bin]]
 name = "tholos"
@@ -25,3 +29,7 @@ ctrlc.workspace = true
 vault-fetch.workspace = true
 vault-fetch-http.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "macros"] }
+
+# Émet /DELAYLOAD:winfsp-x64.dll pour le binaire `tholos` (voir build.rs).
+[target.'cfg(windows)'.build-dependencies]
+winfsp = { version = "0.13", optional = true, default-features = false, features = ["delayload"] }

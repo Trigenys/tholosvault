@@ -111,6 +111,25 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
 - **Leçon générale** : un adaptateur réseau dont on mesure les relances doit désactiver celles de sa
   bibliothèque, et une panne simulée se vérifie du point de vue du client (journal serveur **et**
   compteurs client doivent coïncider), pas seulement du côté qui l'injecte.
+### I-005 — Une dépendance choisie pour sa qualité technique peut changer la licence du binaire (near miss, 2026-11-20)
+
+- **Contexte** : `stack.md` retenait `winfsp-rs` (Adopt) pour le montage Windows sur des critères
+  techniques (API sûre, `delayload`, maintenance). Sa licence GPL-3.0 n'a été relevée qu'au moment
+  d'écrire la PR de l'adaptateur, alors que le workspace est Apache-2.0 et que les apps sont
+  propriétaires (ADR-0001). Le pilote WinFsp lui-même a une exception FLOSS qui ne s'étend pas au
+  crate Rust.
+- **Risque** : publier un binaire `tholos` Windows ou une app desktop sous une licence incompatible
+  avec le modèle open core, et devoir réécrire l'adaptateur après coup.
+- **Règle** : toute décision Adopt / Adapt dans `docs/produit/stack.md` note la licence de la brique
+  et sa compatibilité avec ADR-0001 (cœur Apache-2.0, apps propriétaires). Une brique copyleft dans
+  un chemin qui finit dans un binaire distribué passe par un ADR avant d'être activée par défaut.
+- **Prévention vérifiable** : ADR-0006 (options, décision attendue avant publication de binaires
+  Windows) ; feature `winfsp` non activée par défaut dans `vault-mount` ; à ajouter dans le chantier
+  release : `cargo deny check licenses` avec liste blanche Apache-2.0 / MIT / BSD et exception
+  explicite pour `winfsp` tant que l'ADR est en statut proposé.
+- **Leçon générale** : la revue reuse-first compare des approches techniques ; elle doit aussi
+  comparer leur licence, car une dépendance se change plus facilement avant que son API ne soit
+  épousée par le code.
 
 ## Réfutations consignées par le banc
 
@@ -151,3 +170,24 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
   **Leçon ajoutée** : avant d'attribuer une perte à son propre code, mesurer le nombre de requêtes et leur
   taille côté noyau (`h4.mount_req_kib`) et le coût fixe par requête ; une hypothèse plausible chiffrée
   (1/8 ≈ 0,125) n'est pas une mesure.
+
+### B-003 — H4 sous Windows : une mesure de poste n'est pas une référence (2026-11-20, révisée 2026-11-24)
+- **Contexte** : première exécution de H4 à travers WinFsp sur le poste de développement
+  (16 cœurs, WinFsp 2.2.26323) : p99 d'ouverture 4,8 × BLAKE3 d'un MiB (seuil ≤ 1), cœur 1,22.
+  Un ADR a été rédigé le jour même consignant H4 **réfutée sous Windows sur l'ouverture**.
+- **Near miss** : la première exécution CI (`windows-latest`) donne l'inverse : ouverture 0,90 ✓,
+  cœur 0,8966 ✗ (seuil ≥ 0,9). Trois exécutions suivantes sur le poste donnent 1,04 à 2,11 pour
+  l'ouverture et 0,79 à 1,03 pour le cœur. Le verdict consigné reposait sur du bruit d'hôte
+  (antivirus en temps réel, charge de fond, hachage très rapide au dénominateur).
+- **Décision** : [ADR-0007](../adr/0007-mesure-h4-windows.md) réécrit — exemption déclarée par
+  système (`non_blocking_on: ["windows"]`, ADR obligatoire) sur `h4.core_read_ratio` et
+  `h4.mount_open_p99_over_blake3_mib`, seuils inchangés et bloquants sous Linux, bornée à trois
+  exécutions CI de référence ; ensuite retrait de l'exemption ou réfutation consignée avec seuil
+  dérivé d'un plancher mesuré (`std::fs` 1 MiB ÷ 128 KiB), jamais de la mesure de `tholos`.
+- **Leçon** : un verdict (réfutation ou confirmation) ne se consigne que sur l'hôte de référence
+  déclaré par le banc, jamais sur un poste ; une mesure de poste détecte une régression grossière et
+  s'arrête là. Un seuil commun à deux pilotes se réfute pilote par pilote ; l'exemption se déclare
+  dans le contrat du banc (visible, contrôlée), jamais par un seuil relevé. Un même test réel a aussi
+  révélé qu'un argument de liaison (`/DELAYLOAD`) émis par une bibliothèque ne protège pas les
+  binaires qui l'embarquent : le binaire final doit l'émettre lui-même, et la CI doit démarrer le
+  binaire **avant** d'installer le pilote.

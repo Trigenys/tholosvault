@@ -94,6 +94,8 @@
           "unit": "ratio",
           "threshold": { "op": ">=", "value": 0.9 },
           "blocking": true,
+          "non_blocking_on": ["windows"],
+          "adr": "docs/adr/0007-mesure-h4-windows.md",
           "source": "lecture séquentielle de vault-core (1 MiB) ÷ lecture par VaultFs en requêtes de 128 KiB, cache froid"
         },
         "h4.mount_content_ok": {
@@ -145,6 +147,8 @@
           "unit": "ratio",
           "threshold": { "op": "<=", "value": 1 },
           "blocking": true,
+          "non_blocking_on": ["windows"],
+          "adr": "docs/adr/0007-mesure-h4-windows.md",
           "requires": "mount"
         }
       }

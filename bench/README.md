@@ -39,7 +39,7 @@ exécutions au même commit produisent le même digest.
 | H1 découpage vs zstd solide | mesurée | `h1.loss_pct.{code,binary}.block1m` ≤ 20 / 10 % ; `h1.loss_pct.{code,binary}.cdc` ≤ 25 % |
 | H2 déduplication CDC | mesurée | `h2.dedup_recall.exact` ≥ 0,99 ; `h2.edit_cost_kib` ≤ 512 KiB ; `h2.penalty_pct.d20`, `.d40` ≤ 0 % |
 | H3 montage et accès aléatoire | mesurée | `h3.metadata_plaintext` = 1 ; `h3.open_scaling` ≤ 20× (10× plus de fichiers) ; `h3.find_p99_over_blake3_mib` ≤ 0,05 ; `h3.chunks_per_read4k.max` ≤ 2 |
-| H4 le cœur d'un montage lit à la vitesse du décodeur ; à travers le noyau, débit borné par la latence par requête (reformulée, ADR-0004) | mesurée | `h4.core_read_ratio` ≥ 0,9 (cœur `vault-mount` en requêtes de 128 KiB ÷ lecture directe 1 MiB) ; avec pilote (`requires: mount`) : `h4.mount_content_ok` = 1, `h4.mount_read_ratio` ≥ 0,7 (0,18 mesuré en CI, non bloquante : plancher de latence FUSE par requête, voir [ADR-0004](../docs/adr/0004-debit-lecture-montage-fuse.md) ; informatives : `h4.mount_read_ratio_code`, `h4.mount_read_ratio_binary`, `h4.mount_decode_ratio`, `h4.mount_req_kib`), `h4.core_concurrent_decode_ratio` ≤ 1,05 (vol unique), `h4.mount_open_p99_over_blake3_mib` ≤ 1 |
+| H4 le cœur d'un montage lit à la vitesse du décodeur ; à travers le noyau, débit borné par la latence par requête (reformulée, ADR-0004) | mesurée | `h4.core_read_ratio` ≥ 0,9 (cœur `vault-mount` en requêtes de 128 KiB ÷ lecture directe 1 MiB ; 0,99 sous Linux, 0,8966 sur `windows-latest` : non bloquante sous Windows jusqu'à trois exécutions de référence, voir [ADR-0007](../docs/adr/0007-mesure-h4-windows.md)) ; avec pilote (`requires: mount`) : `h4.mount_content_ok` = 1, `h4.mount_read_ratio` ≥ 0,7 (0,18 mesuré en CI, non bloquante : plancher de latence FUSE par requête, voir [ADR-0004](../docs/adr/0004-debit-lecture-montage-fuse.md) ; informatives : `h4.mount_read_ratio_code`, `h4.mount_read_ratio_binary`, `h4.mount_decode_ratio`, `h4.mount_req_kib`), `h4.core_concurrent_decode_ratio` ≤ 1,05 (vol unique), `h4.mount_open_p99_over_blake3_mib` ≤ 1 (0,69 sous FUSE ; 0,90 sur `windows-latest` mais 1,0 à 4,8 sur un poste de développement : non bloquante sous Windows jusqu'à trois exécutions de référence, même ADR) |
 | H5 parité Reed-Solomon | mesurée | `h5.repair_rate.*` = 1 (4 scénarios) ; `h5.build_vs_blake3` ≤ 3× (1,8–2,1× à ≥ 4 fils, 3,8× mono-fil ; BLAKE3 du même volume, voir [ADR-0003](../docs/adr/0003-cout-construction-parite.md)) |
 | H6 delta entre archives | non mesurée | prérequis : commande delta |
 | H7 dictionnaire zstd | non mesurée | prérequis : dictionnaire dans le format |
@@ -66,7 +66,7 @@ débit (H5, `h5.blake3_s_per_gb` rapporté à côté de `h5.build_s_per_gb`).
 métriques avec p50/p99 quand il y a des échantillons, verdict `pass`), `results/<profil>.csv` (une ligne
 par métrique) et `results/<profil>.samples.raw` (échantillons bruts, ignorés par git). Le résumé markdown
 est imprimé sur la sortie standard et, en CI, ajouté au résumé du job ; les JSON/CSV sont publiés en
-artefact `bench-ci`.
+artefact `bench-ci-<os>` (ubuntu et windows : H4 mesure FUSE et WinFsp).
 
 Les temps mesurés sur un runner partagé sont bruités : les seuils bloquants portent sur des rapports
 (à BLAKE3, à zstd solide, entre deux tailles) ou des invariants, jamais sur une durée absolue.
@@ -75,7 +75,10 @@ Les temps mesurés sur un runner partagé sont bruités : les seuils bloquants p
 
 - Un seuil ne se relâche pas pour faire passer la CI. Une thèse réfutée se consigne : ADR dans
   `docs/adr/`, entrée dans `docs/engineering/lessons-learned.md`, métrique passée en `"blocking": false`
-  avec un champ `"adr"` (contrôlé au chargement : un seuil non bloquant sans ADR est refusé).
+  avec un champ `"adr"` (contrôlé au chargement : un seuil non bloquant sans ADR est refusé). Une
+  réfutation propre à un système passe par `"non_blocking_on": ["<os>"]` (valeurs de
+  `std::env::consts::OS`, `adr` obligatoire) : le seuil reste évalué et affiché partout, et bloque
+  toujours sur les autres systèmes.
 - Seuls les générateurs de corpus peuvent être recalibrés, dans leurs bandes de validité (taux de doublons
   réel à ±2 points, etc.) ; un corpus hors bande fait échouer l'exécution (code 2).
 - Ajouter une métrique : la déclarer dans `config.json` **et** la produire dans `src/theses/` ; le contrat
