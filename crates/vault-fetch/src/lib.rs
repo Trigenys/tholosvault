@@ -13,6 +13,7 @@
 pub mod dest;
 pub mod error;
 mod fetcher;
+pub mod file;
 pub mod limiter;
 pub mod plan;
 pub mod state;
@@ -26,6 +27,7 @@ use vault_core::merkle::Hash;
 
 pub use error::{Error, Result};
 pub use fetcher::Fetcher;
+pub use file::{local_source, FileTransport};
 pub use limiter::parse_rate;
 pub use plan::{Plan, Segment, Unit, UnitKind, DEFAULT_SEGMENT_BYTES};
 pub use state::{part_path, PartState};

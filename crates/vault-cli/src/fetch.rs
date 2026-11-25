@@ -1,11 +1,17 @@
 //! `tholos fetch` : téléchargement conscient du format (ADR-0005).
+//!
+//! Source HTTP(S), ou locale (`file://…` ou chemin : disque externe, partage
+//! monté) avec la même vérification par morceau et la même reprise.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use vault_core::merkle::{to_hex, Hash};
-use vault_fetch::{parse_rate, Event, FetchOptions, Fetcher, Outcome, UnitKind};
+use vault_fetch::{
+    local_source, parse_rate, Event, FetchOptions, Fetcher, FileTransport, Outcome, Transport,
+    UnitKind,
+};
 use vault_fetch_http::HttpTransportBuilder;
 
 pub struct FetchArgs {
@@ -34,6 +40,12 @@ fn parse_root(s: &str) -> Result<Hash> {
 }
 
 fn default_out(url: &str) -> PathBuf {
+    if let Some(local) = local_source(url) {
+        return local
+            .file_name()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("archive.vault"));
+    }
     let path = url.split(['?', '#']).next().unwrap_or(url);
     let name = path
         .rsplit('/')
@@ -59,7 +71,7 @@ fn human(n: u64) -> String {
 }
 
 pub fn run(a: FetchArgs) -> Result<()> {
-    let dest = a.out.unwrap_or_else(|| default_out(&a.url));
+    let dest = a.out.clone().unwrap_or_else(|| default_out(&a.url));
     let expected_root = a.root.as_deref().map(parse_root).transpose()?;
     let limit = match &a.limit {
         Some(s) => Some(parse_rate(s).with_context(|| format!("limite de débit invalide : {s}"))?),
@@ -69,108 +81,134 @@ pub fn run(a: FetchArgs) -> Result<()> {
         .enable_all()
         .build()
         .context("démarrage de l'exécuteur")?;
-    rt.block_on(async {
-        let transport = HttpTransportBuilder::new(a.url.clone())
-            .build()
-            .context("client HTTP")?;
-        let mut opts = FetchOptions::new(&dest, &a.url);
-        opts.expected_root = expected_root;
-        opts.connections = a.connections.max(1);
-        opts.limit_bytes_per_sec = limit;
-        opts.skip_parity = a.no_parity;
-        opts.restart = a.restart;
-
-        if a.plan {
-            let report = Fetcher::new(transport, opts).plan().await?;
-            print_plan(&dest, &report);
-            return Ok(());
+    match local_source(&a.url) {
+        Some(src) => {
+            let transport = FileTransport::new(&src, &dest)
+                .with_context(|| format!("source locale {}", src.display()))?;
+            rt.block_on(drive(transport, a, dest, expected_root, limit))
         }
+        None => {
+            let transport = HttpTransportBuilder::new(a.url.clone())
+                .build()
+                .context("client HTTP")?;
+            rt.block_on(drive(transport, a, dest, expected_root, limit))
+        }
+    }
+}
 
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Event>();
-        opts.events = Some(tx);
-        let quiet = a.quiet;
-        let progress = tokio::spawn(async move {
-            let mut total = 0u64;
-            let mut last = std::time::Instant::now() - Duration::from_secs(1);
-            while let Some(ev) = rx.recv().await {
-                if quiet {
-                    continue;
-                }
-                match ev {
-                    Event::Probed { len, accepts_ranges } => {
-                        total = len;
-                        if !accepts_ranges {
-                            eprintln!("la source n'accepte pas les plages : flux unique, vérification en fin");
-                        }
-                    }
-                    Event::Planned {
-                        units,
-                        verified_units,
-                        missing_bytes,
-                        total_bytes,
-                    } => {
-                        total = total_bytes;
+async fn drive<T: Transport + 'static>(
+    transport: T,
+    a: FetchArgs,
+    dest: PathBuf,
+    expected_root: Option<Hash>,
+    limit: Option<u64>,
+) -> Result<()> {
+    let mut opts = FetchOptions::new(&dest, &a.url);
+    opts.expected_root = expected_root;
+    opts.connections = a.connections.max(1);
+    opts.limit_bytes_per_sec = limit;
+    opts.skip_parity = a.no_parity;
+    opts.restart = a.restart;
+
+    if a.plan {
+        let report = Fetcher::new(transport, opts).plan().await?;
+        print_plan(&dest, &report);
+        return Ok(());
+    }
+
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Event>();
+    opts.events = Some(tx);
+    let quiet = a.quiet;
+    let progress = tokio::spawn(async move {
+        let mut total = 0u64;
+        let mut last = std::time::Instant::now() - Duration::from_secs(1);
+        while let Some(ev) = rx.recv().await {
+            if quiet {
+                continue;
+            }
+            match ev {
+                Event::Probed {
+                    len,
+                    accepts_ranges,
+                } => {
+                    total = len;
+                    if !accepts_ranges {
                         eprintln!(
-                            "{units} unités, {verified_units} déjà vérifiées, {} à recevoir sur {}",
-                            human(missing_bytes),
-                            human(total_bytes)
+                            "la source n'accepte pas les plages : flux unique, vérification en fin"
                         );
                     }
-                    Event::UnitVerified { verified_bytes, kind, .. } => {
-                        if last.elapsed() >= Duration::from_millis(200)
-                            || verified_bytes == total
-                            || matches!(kind, UnitKind::Trailer)
-                        {
-                            last = std::time::Instant::now();
-                            let pct = (verified_bytes * 100).checked_div(total).unwrap_or(0);
-                            eprint!("\r{pct:3}% {} / {}   ", human(verified_bytes), human(total));
-                        }
-                    }
-                    Event::ChunkRejected { index, attempt } => {
-                        eprintln!("\nmorceau {index} rejeté (BLAKE3), nouvelle demande n° {attempt}");
-                    }
-                    Event::SegmentCut { resume_at, .. } => {
-                        eprintln!("\ncoupure, reprise à l'octet {resume_at}");
-                    }
-                    Event::SegmentRetry {
-                        attempt, reason, ..
-                    } => {
-                        eprintln!("\nrelance n° {attempt} : {reason}");
+                }
+                Event::Planned {
+                    units,
+                    verified_units,
+                    missing_bytes,
+                    total_bytes,
+                } => {
+                    total = total_bytes;
+                    eprintln!(
+                        "{units} unités, {verified_units} déjà vérifiées, {} à recevoir sur {}",
+                        human(missing_bytes),
+                        human(total_bytes)
+                    );
+                }
+                Event::UnitVerified {
+                    verified_bytes,
+                    kind,
+                    ..
+                } => {
+                    if last.elapsed() >= Duration::from_millis(200)
+                        || verified_bytes == total
+                        || matches!(kind, UnitKind::Trailer)
+                    {
+                        last = std::time::Instant::now();
+                        let pct = (verified_bytes * 100).checked_div(total).unwrap_or(0);
+                        eprint!("\r{pct:3}% {} / {}   ", human(verified_bytes), human(total));
                     }
                 }
+                Event::ChunkRejected { index, attempt } => {
+                    eprintln!("\nmorceau {index} rejeté (BLAKE3), nouvelle demande n° {attempt}");
+                }
+                Event::SegmentCut { resume_at, .. } => {
+                    eprintln!("\ncoupure, reprise à l'octet {resume_at}");
+                }
+                Event::SegmentRetry {
+                    attempt, reason, ..
+                } => {
+                    eprintln!("\nrelance n° {attempt} : {reason}");
+                }
             }
-        });
-        let summary = Fetcher::new(transport, opts).run().await;
-        let _ = progress.await;
-        let s = summary?;
-        if !quiet {
-            eprintln!();
         }
-        let status = match s.outcome {
-            Outcome::AlreadyComplete => "déjà complète",
-            Outcome::Complete => "complète",
-            Outcome::CompleteWithoutParity => "complète sans parité (état .part conservé)",
-        };
-        println!(
-            "{} : {} ({}), racine {}",
-            dest.display(),
-            status,
-            human(s.len),
-            to_hex(&s.archive_root)
+    });
+    let summary = Fetcher::new(transport, opts).run().await;
+    let _ = progress.await;
+    let s = summary?;
+    if !quiet {
+        eprintln!();
+    }
+    let status = match s.outcome {
+        Outcome::AlreadyComplete => "déjà complète",
+        Outcome::Complete => "complète",
+        Outcome::CompleteWithoutParity => "complète sans parité (état .part conservé)",
+    };
+    println!(
+        "{} : {} ({}), racine {}",
+        dest.display(),
+        status,
+        human(s.len),
+        to_hex(&s.archive_root)
+    );
+    if !quiet {
+        eprintln!(
+            "{} requêtes, {} reçus, {} morceau(x) rejeté(s) ({}), {} coupure(s), {:.1} s",
+            s.requests,
+            human(s.bytes_received),
+            s.chunks_rejected,
+            human(s.bytes_rejected),
+            s.cuts,
+            s.elapsed.as_secs_f64()
         );
-        if !quiet {
-            eprintln!(
-                "{} requêtes, {} reçus, {} morceau(x) rejeté(s) ({}), {} coupure(s), {:.1} s",
-                s.requests,
-                human(s.bytes_received),
-                s.chunks_rejected,
-                human(s.bytes_rejected),
-                s.cuts,
-                s.elapsed.as_secs_f64()
-            );
-        }
-        Ok(())
-    })
+    }
+    Ok(())
 }
 
 fn print_plan(dest: &Path, r: &vault_fetch::PlanReport) {
