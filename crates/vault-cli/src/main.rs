@@ -1,8 +1,8 @@
 //! CLI `tholos` : adaptateur mince au-dessus de `vault-core`.
 
+mod extract;
 mod fetch;
 
-use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
@@ -46,8 +46,16 @@ enum Cmd {
     Verify { archive: PathBuf },
     /// Reconstruit les zones corrompues à partir de la parité (copie puis renommage).
     Repair { archive: PathBuf },
-    /// Extrait toute l'archive dans un répertoire.
-    Extract { archive: PathBuf, out_dir: PathBuf },
+    /// Extrait l'archive, ou seulement les chemins donnés, dans un répertoire.
+    /// Écriture en flux (mémoire bornée par un morceau), chaque morceau vérifié ;
+    /// un fichier n'apparaît sous son nom qu'une fois complet.
+    Extract {
+        archive: PathBuf,
+        out_dir: PathBuf,
+        /// Fichiers ou répertoires à extraire, tels que `tholos list` les affiche
+        /// (défaut : toute l'archive).
+        paths: Vec<String>,
+    },
     /// Écrit un fichier (ou une plage) sur la sortie standard en ne décompressant
     /// que les morceaux couvrants.
     Cat {
@@ -205,22 +213,11 @@ fn main() -> Result<()> {
                 println!("vérification après réparation : OK");
             }
         }
-        Cmd::Extract { archive, out_dir } => {
-            let ar = open(&archive)?;
-            for f in ar.files() {
-                let data = ar.read_file(&f.path).with_context(|| f.path.clone())?;
-                let dest = safe_join(&out_dir, &f.path)?;
-                if let Some(parent) = dest.parent() {
-                    fs::create_dir_all(parent)?;
-                }
-                fs::write(&dest, data).with_context(|| dest.display().to_string())?;
-            }
-            println!(
-                "{} fichiers extraits dans {}",
-                ar.files().len(),
-                out_dir.display()
-            );
-        }
+        Cmd::Extract {
+            archive,
+            out_dir,
+            paths,
+        } => extract::run(&archive, &out_dir, &paths)?,
         Cmd::Cat {
             archive,
             path,
@@ -349,13 +346,4 @@ fn print_damage(d: &Damage) {
 
 fn open(p: &Path) -> Result<Archive> {
     Archive::open(p).with_context(|| format!("ouverture de {}", p.display()))
-}
-
-/// Refuse les chemins qui sortiraient du répertoire cible (règle de `vault_core::path`).
-fn safe_join(root: &Path, rel: &str) -> Result<PathBuf> {
-    let parts = vault_core::path::components(rel)
-        .with_context(|| format!("chemin d'archive refusé : {rel}"))?;
-    let mut out = root.to_path_buf();
-    out.extend(parts);
-    Ok(out)
 }

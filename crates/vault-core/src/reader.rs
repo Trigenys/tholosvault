@@ -387,6 +387,55 @@ impl Archive {
         Ok(out)
     }
 
+    /// Indices (dans [`Archive::files`], triés, sans doublon) des fichiers
+    /// désignés par `selectors` : chemin exact d'un fichier, ou répertoire
+    /// (tous les fichiers sous `rép/`). Aucun sélecteur : tous les fichiers.
+    /// Un sélecteur sans correspondance est une erreur ([`Error::NotFound`]),
+    /// un sélecteur qui sortirait de l'archive aussi ([`Error::InvalidPath`]).
+    pub fn select(&self, selectors: &[&str]) -> Result<Vec<usize>> {
+        if selectors.is_empty() {
+            return Ok((0..self.files.len()).collect());
+        }
+        let mut out = Vec::new();
+        for &sel in selectors {
+            let sel = sel.strip_suffix('/').unwrap_or(sel);
+            crate::path::components(sel)?;
+            let before = out.len();
+            if let Some(i) = self.find_index(sel) {
+                out.push(i);
+            }
+            let prefix = format!("{sel}/");
+            let first = self
+                .files
+                .partition_point(|f| f.path.as_bytes() < prefix.as_bytes());
+            out.extend(
+                (first..self.files.len()).take_while(|&i| self.files[i].path.starts_with(&prefix)),
+            );
+            if out.len() == before {
+                return Err(Error::NotFound(sel.to_string()));
+            }
+        }
+        out.sort_unstable();
+        out.dedup();
+        Ok(out)
+    }
+
+    /// Écrit le fichier `file` dans `out` morceau par morceau, chacun vérifié
+    /// par son hachage avant écriture : la mémoire reste bornée par la taille
+    /// d'un morceau, quelle que soit celle du fichier. Renvoie le nombre
+    /// d'octets écrits. Au premier morceau corrompu, l'erreur est renvoyée et
+    /// `out` contient un préfixe intègre du fichier.
+    pub fn write_file_to<W: Write + ?Sized>(&self, file: usize, out: &mut W) -> Result<u64> {
+        let f = self.file_at(file)?;
+        let mut written = 0u64;
+        for &idx in &f.chunks {
+            let data = self.read_chunk(idx)?;
+            out.write_all(&data).map_err(Error::Output)?;
+            written += data.len() as u64;
+        }
+        Ok(written)
+    }
+
     /// Contenu complet d'un fichier, vérifié morceau par morceau.
     pub fn read_file(&self, path: &str) -> Result<Vec<u8>> {
         let f = self
