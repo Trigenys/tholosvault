@@ -1,7 +1,7 @@
 [package]
 name = "vault-cli"
 version = "0.1.0"
-description = "CLI tholos : pack, list, verify, repair, extract, cat, mount, fetch."
+description = "CLI tholos : pack, list, info, verify, repair, extract, cat, mount, fetch."
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -28,6 +28,7 @@ vault-mount.workspace = true
 ctrlc.workspace = true
 vault-fetch.workspace = true
 vault-fetch-http.workspace = true
+serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "macros"] }
 
 # Émet /DELAYLOAD:winfsp-x64.dll pour le binaire `tholos` (voir build.rs).

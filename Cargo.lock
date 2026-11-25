@@ -1991,6 +1991,7 @@ dependencies = [
  "anyhow",
  "clap",
  "ctrlc",
+ "serde_json",
  "tokio",
  "vault-core",
  "vault-fetch",
