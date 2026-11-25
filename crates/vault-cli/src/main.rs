@@ -43,7 +43,18 @@ enum Cmd {
     List { archive: PathBuf },
     /// Vérifie chaque morceau, chaque racine de fichier et la racine d'archive,
     /// puis indique si les dégâts éventuels sont réparables.
-    Verify { archive: PathBuf },
+    Verify {
+        archive: PathBuf,
+        /// Vérification rapide : racines depuis les tables, CRC32C de tous les
+        /// shards si l'archive porte une parité, et un échantillon de morceaux
+        /// décompressés. Un dégât détecté déclenche la vérification complète.
+        /// Sans parité, seul l'échantillon contrôle le contenu.
+        #[arg(long)]
+        quick: bool,
+        /// Morceaux décompressés par la vérification rapide.
+        #[arg(long, default_value_t = 64, requires = "quick")]
+        sample: usize,
+    },
     /// Reconstruit les zones corrompues à partir de la parité (copie puis renommage).
     Repair { archive: PathBuf },
     /// Extrait l'archive, ou seulement les chemins donnés, dans un répertoire.
@@ -151,7 +162,11 @@ fn main() -> Result<()> {
             }
             println!("racine {}", merkle::to_hex(ar.archive_root()));
         }
-        Cmd::Verify { archive } => {
+        Cmd::Verify {
+            archive,
+            quick,
+            sample,
+        } => {
             let ar = match Archive::open(&archive) {
                 Ok(ar) => ar,
                 Err(e) => {
@@ -163,19 +178,40 @@ fn main() -> Result<()> {
                     bail!("vérification échouée ({})", repairability(&d));
                 }
             };
-            let r = ar.verify();
+            let total = ar.chunks().len() as u64;
+            let r = if quick {
+                ar.verify_quick(sample)
+            } else {
+                ar.verify()
+            };
             let d = r.damage.as_ref().expect("bilan établi par verify");
+            if quick && r.chunks_checked == total && sample < ar.chunks().len() {
+                eprintln!("dégât détecté par CRC : vérification complète effectuée");
+            }
             if r.is_ok() && !d.needs_repair() {
-                println!(
-                    "OK : {} morceaux, {} fichiers{}",
-                    r.chunks_checked,
-                    ar.files().len(),
-                    if ar.has_parity() {
-                        ", parité présente"
-                    } else {
-                        ", sans parité"
-                    }
-                );
+                if quick && r.chunks_checked < total {
+                    println!(
+                        "OK (rapide) : {} morceaux décompressés sur {total}, {} fichiers, {}",
+                        r.chunks_checked,
+                        ar.files().len(),
+                        if ar.has_parity() {
+                            "CRC de tous les shards conforme"
+                        } else {
+                            "sans parité : contenu hors échantillon non contrôlé (`tholos verify` sans --quick pour tout vérifier)"
+                        }
+                    );
+                } else {
+                    println!(
+                        "OK : {} morceaux, {} fichiers{}",
+                        r.chunks_checked,
+                        ar.files().len(),
+                        if ar.has_parity() {
+                            ", parité présente"
+                        } else {
+                            ", sans parité"
+                        }
+                    );
+                }
             } else {
                 for i in &r.bad_chunks {
                     eprintln!("morceau {i} corrompu");
