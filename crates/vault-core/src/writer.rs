@@ -3,6 +3,12 @@
 //! Déterminisme (L-001) : fichiers parcourus en ordre bytewise de chemin relatif,
 //! aucun horodatage ni métadonnée hôte, zstd mono-thread à niveau fixe. Deux
 //! constructions du même arbre produisent des octets identiques.
+//!
+//! Atomicité : l'archive est écrite dans `<dst>.tholos-tmp` puis renommée sur
+//! `dst` une fois complète. Un échec ou une interruption laisse l'archive
+//! précédente intacte, jamais un fichier tronqué sous le nom final. La cible et
+//! son fichier temporaire sont exclus de la source quand ils s'y trouvent :
+//! relancer `pack` sur le même arbre redonne la même racine.
 
 use std::collections::HashMap;
 use std::fs;
@@ -61,12 +67,25 @@ struct FileRecord {
     chunks: Vec<u32>,
 }
 
+/// Suffixe du fichier temporaire écrit à côté de la cible.
+pub const TMP_SUFFIX: &str = ".tholos-tmp";
+
+/// Chemin du fichier temporaire de construction de `dst`.
+pub fn tmp_path(dst: &Path) -> PathBuf {
+    let mut name = dst.file_name().unwrap_or_default().to_os_string();
+    name.push(TMP_SUFFIX);
+    dst.with_file_name(name)
+}
+
 /// Archive le contenu de `src_dir` (fichiers réguliers uniquement, récursif)
-/// dans le fichier `dst`. Écrase `dst` s'il existe.
+/// dans le fichier `dst`, remplacé atomiquement s'il existe (voir l'en-tête
+/// du module). `dst` et son temporaire ne sont jamais archivés eux-mêmes.
 pub fn pack_dir(src_dir: &Path, dst: &Path, opts: &PackOptions) -> Result<PackSummary> {
     opts.chunk.validate()?;
     opts.parity.validate()?;
-    let paths = collect_files(src_dir)?;
+    let tmp = tmp_path(dst);
+    let mut paths = collect_files(src_dir)?;
+    exclude_outputs(&mut paths, &[dst, &tmp]);
 
     // Lecture + écriture : la zone protégée est relue par mmap pour la parité.
     let out = fs::OpenOptions::new()
@@ -74,8 +93,63 @@ pub fn pack_dir(src_dir: &Path, dst: &Path, opts: &PackOptions) -> Result<PackSu
         .write(true)
         .create(true)
         .truncate(true)
-        .open(dst)
-        .map_err(|e| Error::io(dst, e))?;
+        .open(&tmp)
+        .map_err(|e| Error::io(&tmp, e))?;
+    match write_archive(&paths, out, &tmp, opts) {
+        Ok(summary) => {
+            // Le temporaire est fermé (et sa vue mmap libérée, I-001) avant le
+            // renommage, qui remplace `dst` d'un seul coup.
+            fs::rename(&tmp, dst).map_err(|e| {
+                let _ = fs::remove_file(&tmp);
+                Error::io(dst, e)
+            })?;
+            Ok(summary)
+        }
+        Err(e) => {
+            let _ = fs::remove_file(&tmp);
+            Err(e)
+        }
+    }
+}
+
+/// Retire de la liste les fichiers qui sont l'une des sorties (même fichier,
+/// quel que soit le chemin employé pour le désigner).
+fn exclude_outputs(paths: &mut Vec<(String, PathBuf)>, outputs: &[&Path]) {
+    let targets: Vec<(std::ffi::OsString, PathBuf)> = outputs
+        .iter()
+        .filter_map(|o| Some((o.file_name()?.to_os_string(), canonical_target(o)?)))
+        .collect();
+    if targets.is_empty() {
+        return;
+    }
+    paths.retain(|(_, abs)| {
+        let Some(name) = abs.file_name() else {
+            return true;
+        };
+        // Canonicalisation réservée aux homonymes : coût nul sur un arbre courant.
+        !targets.iter().any(|(tname, tcanon)| {
+            tname == name && fs::canonicalize(abs).is_ok_and(|c| &c == tcanon)
+        })
+    });
+}
+
+/// Chemin canonique d'une sortie qui n'existe pas forcément encore : parent
+/// canonique + nom.
+fn canonical_target(p: &Path) -> Option<PathBuf> {
+    let name = p.file_name()?;
+    let parent = match p.parent() {
+        Some(d) if !d.as_os_str().is_empty() => d,
+        _ => Path::new("."),
+    };
+    Some(fs::canonicalize(parent).ok()?.join(name))
+}
+
+fn write_archive(
+    paths: &[(String, PathBuf)],
+    out: fs::File,
+    dst: &Path,
+    opts: &PackOptions,
+) -> Result<PackSummary> {
     let mut w = BufWriter::new(out);
 
     let header = Header {
@@ -99,7 +173,7 @@ pub fn pack_dir(src_dir: &Path, dst: &Path, opts: &PackOptions) -> Result<PackSu
     let mut input_bytes: u64 = 0;
     let mut total_refs: u64 = 0;
 
-    for (rel, abs) in &paths {
+    for (rel, abs) in paths {
         let data = fs::read(abs).map_err(|e| Error::io(abs, e))?;
         input_bytes += data.len() as u64;
         let mut refs = Vec::new();

@@ -28,7 +28,9 @@ de sources, archives documentaires et photothèques.
 Le cœur Rust `vault-core` et le CLI `tholos` implémentent le format v1 :
 
 - `tholos pack` : découpe FastCDC (64–256 KiB), zstd par morceau, Merkle BLAKE3, parité Reed-Solomon, trailer
-  répliqué protégé par CRC32C ;
+  répliqué protégé par CRC32C ; écriture atomique (`<archive>.tholos-tmp` puis renommage : un échec laisse
+  l'archive précédente intacte) et idempotente (la cible n'est jamais archivée elle-même, même placée dans
+  le dossier source) ;
 - `tholos list` et `tholos verify` : lecture des métadonnées sans décompression, vérification morceau par
   morceau avec rapport précis ;
 - `tholos cat` : lecture d'une plage d'octets d'un fichier (`--offset`, `--len`) sans extraire
