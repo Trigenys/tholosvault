@@ -409,6 +409,61 @@ impl Archive {
                 report.bad_chunks.push(i);
             }
         }
+        self.check_roots(&mut report);
+        let ranges = chunk_ranges(&self.chunks, &report.bad_chunks);
+        let mut damage = scan_map(&self.map, &self.trailer, &ranges, self.bad_trailer_copies);
+        if damage.geometry.is_none() {
+            damage.repairable = report.is_ok();
+        }
+        report.damage = Some(damage);
+        report
+    }
+
+    /// Vérification rapide, sans décompresser toute l'archive :
+    ///
+    /// 1. racines de fichier et racine d'archive recalculées depuis les tables ;
+    /// 2. si l'archive porte une parité, CRC32C de chaque shard (données et
+    ///    parité) : tout octet abîmé de la zone protégée est détecté sans
+    ///    décompression ;
+    /// 3. `sample` morceaux répartis uniformément sont décompressés et
+    ///    contrôlés par BLAKE3 (déterministe : mêmes morceaux à chaque appel).
+    ///
+    /// Si l'étape 2 trouve un shard de données abîmé, le bilan exact exige de
+    /// savoir quels morceaux sont touchés : la vérification complète
+    /// ([`Archive::verify`]) est alors exécutée et son rapport renvoyé
+    /// (`chunks_checked` égal au nombre de morceaux).
+    ///
+    /// Sans parité, seule l'étape 3 contrôle le contenu : un morceau abîmé hors
+    /// échantillon n'est pas vu ; seule [`Archive::verify`] fait foi.
+    pub fn verify_quick(&self, sample: usize) -> VerifyReport {
+        let mut damage = scan_map(&self.map, &self.trailer, &[], self.bad_trailer_copies);
+        if !damage.bad_data_shards.is_empty() {
+            return self.verify();
+        }
+        let mut report = VerifyReport::default();
+        for i in sample_indices(self.chunks.len(), sample) {
+            report.chunks_checked += 1;
+            if self.read_chunk(i).is_err() {
+                report.bad_chunks.push(i);
+            }
+        }
+        self.check_roots(&mut report);
+        if !report.bad_chunks.is_empty() {
+            // Hachage faux sous un CRC intact (ou archive sans parité) : bilan
+            // par shards recalculé avec les morceaux fautifs, comme `verify`.
+            let ranges = chunk_ranges(&self.chunks, &report.bad_chunks);
+            damage = scan_map(&self.map, &self.trailer, &ranges, self.bad_trailer_copies);
+        }
+        if damage.geometry.is_none() {
+            damage.repairable = report.is_ok();
+        }
+        report.damage = Some(damage);
+        report
+    }
+
+    /// Racines de fichier (depuis les hachages de morceaux) et racine d'archive,
+    /// sans décompression.
+    fn check_roots(&self, report: &mut VerifyReport) {
         let mut leaves = Vec::with_capacity(self.files.len());
         for f in &self.files {
             let hashes: Vec<Hash> = f
@@ -428,14 +483,6 @@ impl Archive {
             leaves.push(merkle::file_leaf(&f.path, f.size, &f.root));
         }
         report.archive_root_ok = merkle::merkle_root(&leaves) == self.trailer.archive_root;
-
-        let ranges = chunk_ranges(&self.chunks, &report.bad_chunks);
-        let mut damage = scan_map(&self.map, &self.trailer, &ranges, self.bad_trailer_copies);
-        if damage.geometry.is_none() {
-            damage.repairable = report.is_ok();
-        }
-        report.damage = Some(damage);
-        report
     }
 
     /// Répare l'archive sur disque (ferme la vue mmap, cf. I-001) et renvoie le bilan.
@@ -586,6 +633,23 @@ fn bad_chunk_ranges(map: &[u8], trailer: &Trailer) -> Vec<Range<u64>> {
         .filter(|&i| read_chunk_raw(map, &tables.chunks[i as usize], i).is_err())
         .collect();
     chunk_ranges(&tables.chunks, &bad)
+}
+
+/// `sample` indices de morceaux répartis uniformément sur `0..count`, sans
+/// doublon, premier et dernier compris dès que `sample >= 2`.
+fn sample_indices(count: usize, sample: usize) -> Vec<u32> {
+    let n = sample.min(count);
+    if n == 0 {
+        return Vec::new();
+    }
+    if n == 1 {
+        return vec![0];
+    }
+    let mut out: Vec<u32> = (0..n)
+        .map(|i| (i as u64 * (count as u64 - 1) / (n as u64 - 1)) as u32)
+        .collect();
+    out.dedup();
+    out
 }
 
 fn chunk_ranges(chunks: &[ChunkEntry], bad: &[u32]) -> Vec<Range<u64>> {
@@ -844,4 +908,24 @@ fn parse_hash_table(b: &[u8], chunk_count: usize) -> Result<Vec<(Hash, u32)>> {
         out.push((hash, idx));
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sample_indices;
+
+    #[test]
+    fn sample_is_uniform_bounded_and_deterministic() {
+        assert!(sample_indices(0, 10).is_empty());
+        assert!(sample_indices(10, 0).is_empty());
+        assert_eq!(sample_indices(10, 1), [0]);
+        assert_eq!(sample_indices(10, 2), [0, 9]);
+        assert_eq!(sample_indices(5, 64), [0, 1, 2, 3, 4]);
+        let s = sample_indices(1000, 5);
+        assert_eq!(s, [0, 249, 499, 749, 999]);
+        assert_eq!(s, sample_indices(1000, 5));
+        let big = sample_indices(100_000, 64);
+        assert_eq!(big.len(), 64);
+        assert!(big.windows(2).all(|w| w[0] < w[1]));
+    }
 }
