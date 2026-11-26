@@ -1,5 +1,6 @@
 //! CLI `tholos` : adaptateur mince au-dessus de `vault-core`.
 
+mod diff;
 mod extract;
 mod fetch;
 mod info;
@@ -131,6 +132,21 @@ enum Cmd {
         /// Sortie JSON (schéma `tholos-info/1`) pour les scripts et les apps.
         #[arg(long)]
         json: bool,
+    },
+    /// Compare deux archives sans rien décompresser : fichiers ajoutés,
+    /// supprimés, modifiés, et morceaux de la nouvelle archive absents de
+    /// l'ancienne (ce qu'une mise à jour delta transfère).
+    Diff {
+        /// Archive de référence (version installée).
+        old: PathBuf,
+        /// Archive cible (nouvelle version).
+        new: PathBuf,
+        /// Sortie JSON (schéma `tholos-diff/1`) pour les scripts et les apps.
+        #[arg(long)]
+        json: bool,
+        /// Lister aussi les fichiers inchangés.
+        #[arg(long)]
+        all: bool,
     },
 }
 
@@ -322,6 +338,12 @@ fn main() -> Result<()> {
             quiet,
         })?,
         Cmd::Info { archive, json } => info::run(&archive, json)?,
+        Cmd::Diff {
+            old,
+            new,
+            json,
+            all,
+        } => diff::run(&old, &new, json, all)?,
     }
     Ok(())
 }
