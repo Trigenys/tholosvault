@@ -39,6 +39,23 @@ pub fn median_f64(samples: &[f64]) -> f64 {
     v[v.len() / 2]
 }
 
+/// Nombre de tranches pour les percentiles de queue des seuils temporels.
+pub const TAIL_ROUNDS: usize = 5;
+
+/// Percentile robuste aux rafales de préemption : les échantillons, pris dans
+/// l'ordre de mesure, sont découpés en `rounds` tranches contiguës ; on calcule
+/// le percentile de chaque tranche et l'on retient leur médiane. Une rafale
+/// d'interruptions de l'hôte (runner partagé) ne contamine qu'une tranche au
+/// lieu de faire basculer la queue de toute la série. Avec `rounds` = 1, c'est
+/// `percentile`.
+pub fn percentile_median_of_rounds(samples: &[u64], p: f64, rounds: usize) -> u64 {
+    assert!(!samples.is_empty());
+    let rounds = rounds.clamp(1, samples.len());
+    let size = samples.len().div_ceil(rounds);
+    let per_round: Vec<u64> = samples.chunks(size).map(|c| percentile(c, p)).collect();
+    median(&per_round)
+}
+
 pub fn median(samples: &[u64]) -> u64 {
     percentile(samples, 50.0)
 }
@@ -71,5 +88,28 @@ mod tests {
         assert_eq!(percentile(&s, 99.0), 5);
         assert_eq!(percentile(&s, 0.0), 1);
         assert_eq!(percentile(&[7], 99.0), 7);
+    }
+
+    #[test]
+    fn rounds_isolate_a_preemption_burst() {
+        // 1000 mesures de 300 ns dont une rafale contiguë de 30 à 5400 ns :
+        // le p99 global bascule sur la rafale, la médiane des tranches non.
+        let mut s = vec![300u64; 1000];
+        s[400..430].fill(5400);
+        assert_eq!(percentile(&s, 99.0), 5400);
+        assert_eq!(percentile_median_of_rounds(&s, 99.0, 5), 300);
+    }
+
+    #[test]
+    fn rounds_keep_a_systematic_tail() {
+        // Une queue lente répartie partout (régression réelle) reste visible.
+        let s: Vec<u64> = (0..1000)
+            .map(|i| if i % 50 == 0 { 5400 } else { 300 })
+            .collect();
+        assert_eq!(percentile_median_of_rounds(&s, 99.0, 5), 5400);
+        assert_eq!(
+            percentile_median_of_rounds(&s, 99.0, 1),
+            percentile(&s, 99.0)
+        );
     }
 }

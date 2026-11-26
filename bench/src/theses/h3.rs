@@ -8,7 +8,7 @@ use vault_core::{Archive, ParityOptions};
 
 use super::{pack_opts, Ctx, Produced};
 use crate::corpus;
-use crate::measure::{median_of, percentile, samples_ns};
+use crate::measure::{median_of, percentile, percentile_median_of_rounds, samples_ns, TAIL_ROUNDS};
 use crate::prng::Xorshift;
 use crate::report::Measured;
 use crate::theses::h1::{LEVEL, SEED_BINARY};
@@ -77,7 +77,7 @@ pub fn run(ctx: &mut Ctx) -> Result<Produced> {
         a10.find_index(p).expect("chemin présent")
     });
     ctx.record_samples("h3.find_ns", &find_ns);
-    let p99 = percentile(&find_ns, 99.0);
+    let p99 = percentile_median_of_rounds(&find_ns, 99.0, TAIL_ROUNDS);
     out.push(Measured::from_samples("h3.find_ns", &find_ns, p99 as f64));
     out.push(Measured::scalar(
         "h3.find_p99_over_blake3_mib",

@@ -60,6 +60,14 @@ seuils indépendants de l'hôte : latence par MiB mesurée au début de l'exécu
 métriques de latence (H3), et BLAKE3 mono-fil du même volume, mesuré au même instant, pour les métriques de
 débit (H5, `h5.blake3_s_per_gb` rapporté à côté de `h5.build_s_per_gb`).
 
+Les seuils sur un p99 (`h3.find_p99_over_blake3_mib`, `h4.mount_open_p99_over_blake3_mib`) utilisent un
+**p99 par tranches** : les échantillons, dans l'ordre de mesure, sont découpés en 5 tranches contiguës et
+l'on retient la médiane des 5 p99 (`measure::percentile_median_of_rounds`). Une rafale de préemption de
+l'hôte ne fait basculer qu'une tranche ; une queue lente répartie sur toute la série (régression réelle)
+reste visible dans chaque tranche, donc dans la médiane. Le p99 brut de la série reste rapporté dans le
+champ `p99` de la métrique d'échantillons (`h3.find_ns`, `h4.mount_open_ns`). Voir I-008 dans
+`docs/engineering/lessons-learned.md`.
+
 ## Résultats
 
 `results/<profil>.json` (schéma `tholos-bench/1` : outil, hôte, corpus avec digests et validité, thèses,
