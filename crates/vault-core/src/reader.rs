@@ -510,6 +510,26 @@ impl Archive {
         report
     }
 
+    /// Chemins des fichiers qui référencent au moins un des morceaux donnés
+    /// (ordre de la table des fichiers) : traduit les morceaux corrompus d'un
+    /// [`VerifyReport`] en fichiers atteints, sans décompression.
+    pub fn files_using_chunks(&self, chunks: &[u32]) -> Vec<&str> {
+        if chunks.is_empty() {
+            return Vec::new();
+        }
+        let mut hit = vec![false; self.chunks.len()];
+        for &c in chunks {
+            if let Some(h) = hit.get_mut(c as usize) {
+                *h = true;
+            }
+        }
+        self.files
+            .iter()
+            .filter(|f| f.chunks.iter().any(|&c| hit[c as usize]))
+            .map(|f| f.path.as_str())
+            .collect()
+    }
+
     /// Racines de fichier (depuis les hachages de morceaux) et racine d'archive,
     /// sans décompression.
     fn check_roots(&self, report: &mut VerifyReport) {

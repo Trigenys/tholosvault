@@ -1,7 +1,7 @@
 # `tholos verify` — vérifier l'intégrité d'une archive
 
 ```text
-tholos verify <ARCHIVE> [--quick [--sample N]]
+tholos verify <ARCHIVE> [--quick [--sample N]] [--json]
 ```
 
 ## Vérification complète (défaut)
@@ -35,6 +35,35 @@ morceau abîmé hors échantillon n'est pas vu. La sortie le rappelle ; lancer `
 | Saine (rapide) | `OK (rapide) : 64 morceaux décompressés sur 9120, 312 fichiers, CRC de tous les shards conforme` | 0 |
 | Saine (complète) | `OK : 9120 morceaux, 312 fichiers, parité présente` | 0 |
 | Contenu intègre, parité ou trailer abîmés | `contenu intègre, redondance à restaurer (réparable)` | 0 |
-| Contenu abîmé | `morceau 12 corrompu` … `vérification échouée (réparable)` | 1 |
+| Contenu abîmé | `morceau 12 corrompu`, `fichier atteint : saves/slot1.dat` … `vérification échouée (réparable)` | 1 |
 
 Un dégât réparable se corrige avec `tholos repair <ARCHIVE>`.
+
+Chaque morceau corrompu est traduit en fichiers atteints (`fichier atteint : …`) : un morceau
+dédupliqué atteint tous les fichiers qui le référencent.
+
+## Sortie JSON (`--json`)
+
+Schéma `tholos-verify/1`, destiné aux scripts, à la CI et aux écrans « Vérifier » et
+« Bibliothèque » (statut saine / à réparer). Le JSON est écrit sur la sortie standard dans tous les
+cas, y compris en échec ; le code de sortie est celui du tableau ci-dessus. Les clés ne sont
+jamais renommées ; une évolution ajoute des clés ou change de schéma.
+
+| Clé | Sens |
+|---|---|
+| `schema` | `"tholos-verify/1"` |
+| `readable` | en-tête et tables lisibles ; `false` : seuls `error`, `ok`, `needs_repair`, `repairable` et `damage` sont présents |
+| `mode` | `quick` ou `full` (`full` aussi quand la vérification rapide a escaladé) |
+| `escalated` | la vérification rapide a vu un shard abîmé et a basculé en complète |
+| `ok` | contenu intègre (morceaux, racines de fichier, racine d'archive) |
+| `needs_repair` | un shard de données ou de parité, ou une copie du trailer, est abîmé |
+| `repairable` | tout dégât constaté est reconstructible par `tholos repair` |
+| `chunks_total`, `chunks_checked` | morceaux de l'archive, morceaux décompressés et contrôlés |
+| `files` | nombre de fichiers |
+| `bad_chunks` | indices des morceaux corrompus |
+| `damaged_files` | chemins des fichiers référençant un morceau corrompu |
+| `inconsistent_files` | chemins dont la racine ou la taille ne correspond pas aux tables |
+| `archive_root_ok` | racine d'archive cohérente |
+| `parity` | l'archive porte une parité |
+| `damage` | `bad_data_shards[]`, `bad_parity_shards[]`, `bad_trailer_copies`, `parity_usable`, `overflow` (`{group, erased, parity}` ou `null`) |
+| `archive_root` | racine d'archive (hex) |
