@@ -3,6 +3,7 @@
 mod extract;
 mod fetch;
 mod info;
+mod verify;
 
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -11,9 +12,7 @@ use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
-use vault_core::{
-    merkle, pack_dir, repair_file, scan_file, Archive, Damage, PackOptions, ParityOptions,
-};
+use vault_core::{merkle, pack_dir, repair_file, Archive, PackOptions, ParityOptions};
 use vault_mount::{MountOptions, VaultFs};
 
 #[derive(Parser)]
@@ -55,6 +54,10 @@ enum Cmd {
         /// Morceaux décompressés par la vérification rapide.
         #[arg(long, default_value_t = 64, requires = "quick")]
         sample: usize,
+        /// Sortie JSON (schéma `tholos-verify/1`) : morceaux corrompus, fichiers
+        /// atteints, bilan par shards, réparabilité. Code de sortie inchangé.
+        #[arg(long)]
+        json: bool,
     },
     /// Reconstruit les zones corrompues à partir de la parité (copie puis renommage).
     Repair { archive: PathBuf },
@@ -175,73 +178,8 @@ fn main() -> Result<()> {
             archive,
             quick,
             sample,
-        } => {
-            let ar = match Archive::open(&archive) {
-                Ok(ar) => ar,
-                Err(e) => {
-                    // Métadonnées illisibles : le bilan par shards reste possible.
-                    eprintln!("ouverture impossible : {e}");
-                    let d = scan_file(&archive)
-                        .with_context(|| format!("analyse de {}", archive.display()))?;
-                    print_damage(&d);
-                    bail!("vérification échouée ({})", repairability(&d));
-                }
-            };
-            let total = ar.chunks().len() as u64;
-            let r = if quick {
-                ar.verify_quick(sample)
-            } else {
-                ar.verify()
-            };
-            let d = r.damage.as_ref().expect("bilan établi par verify");
-            if quick && r.chunks_checked == total && sample < ar.chunks().len() {
-                eprintln!("dégât détecté par CRC : vérification complète effectuée");
-            }
-            if r.is_ok() && !d.needs_repair() {
-                if quick && r.chunks_checked < total {
-                    println!(
-                        "OK (rapide) : {} morceaux décompressés sur {total}, {} fichiers, {}",
-                        r.chunks_checked,
-                        ar.files().len(),
-                        if ar.has_parity() {
-                            "CRC de tous les shards conforme"
-                        } else {
-                            "sans parité : contenu hors échantillon non contrôlé (`tholos verify` sans --quick pour tout vérifier)"
-                        }
-                    );
-                } else {
-                    println!(
-                        "OK : {} morceaux, {} fichiers{}",
-                        r.chunks_checked,
-                        ar.files().len(),
-                        if ar.has_parity() {
-                            ", parité présente"
-                        } else {
-                            ", sans parité"
-                        }
-                    );
-                }
-            } else {
-                for i in &r.bad_chunks {
-                    eprintln!("morceau {i} corrompu");
-                }
-                for p in &r.bad_files {
-                    eprintln!("fichier incohérent : {p}");
-                }
-                if !r.archive_root_ok {
-                    eprintln!("racine d'archive incohérente");
-                }
-                print_damage(d);
-                if r.is_ok() {
-                    println!(
-                        "contenu intègre, redondance à restaurer ({})",
-                        repairability(d)
-                    );
-                } else {
-                    bail!("vérification échouée ({})", repairability(d));
-                }
-            }
-        }
+            json,
+        } => verify::run(&archive, quick, sample, json)?,
         Cmd::Repair { archive } => {
             let r = repair_file(&archive)
                 .with_context(|| format!("réparation de {}", archive.display()))?;
@@ -362,32 +300,6 @@ fn mount(
     handle.unmount().context("démontage")?;
     eprintln!("démonté");
     Ok(())
-}
-
-fn repairability(d: &Damage) -> &'static str {
-    if d.repairable {
-        "réparable"
-    } else {
-        "non réparable"
-    }
-}
-
-fn print_damage(d: &Damage) {
-    if !d.bad_data_shards.is_empty() {
-        eprintln!("{} shard(s) de données effacé(s)", d.bad_data_shards.len());
-    }
-    if !d.bad_parity_shards.is_empty() {
-        eprintln!("{} shard(s) de parité effacé(s)", d.bad_parity_shards.len());
-    }
-    if d.bad_trailer_copies > 0 {
-        eprintln!("{} copie(s) du trailer illisible(s)", d.bad_trailer_copies);
-    }
-    if let Some((group, erased, max)) = d.overflow {
-        eprintln!("groupe {group} : {erased} effacés pour {max} de parité");
-    }
-    if d.geometry.is_none() && !d.repairable {
-        eprintln!("aucune parité exploitable");
-    }
 }
 
 fn open(p: &Path) -> Result<Archive> {
