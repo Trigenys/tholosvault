@@ -13,6 +13,7 @@
 pub mod cache;
 pub mod chunk;
 pub mod codec;
+pub mod diff;
 pub mod error;
 pub mod format;
 pub mod merkle;
@@ -24,6 +25,7 @@ pub mod writer;
 
 pub use cache::{CacheStats, ChunkCache};
 pub use chunk::ChunkParams;
+pub use diff::{diff, ArchiveDiff, FileChange, FileDiff};
 pub use error::{Error, Result};
 pub use merkle::Hash;
 pub use parity::{Damage, Geometry, ParityOptions};

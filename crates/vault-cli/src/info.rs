@@ -96,7 +96,7 @@ pub fn to_text(s: &ArchiveSummary) -> String {
 }
 
 /// Taille lisible en unités binaires, valeur exacte entre parenthèses au-delà de 1 KiB.
-fn bytes(n: u64) -> String {
+pub(crate) fn bytes(n: u64) -> String {
     const UNITS: [&str; 5] = ["o", "Kio", "Mio", "Gio", "Tio"];
     if n < 1024 {
         return format!("{n} o");
