@@ -1,13 +1,14 @@
-//! Catalogue : les archives `.vault` d'un répertoire racine, ouvertes à la
-//! demande et gardées ouvertes tant que le fichier ne change pas (taille et
-//! date de modification). Un remplacement atomique (`tholos pack` écrit un
-//! temporaire puis renomme, I-007) est donc vu à la requête suivante.
+//! Catalogue : les archives `.vault` d'un répertoire racine, ouvertes à
+//! chaque requête (en-tête, trailer et tables, sans décompression : L-002) et
+//! refermées avec la réponse. Pas de cache d'archives ouvertes : une clé
+//! taille + date de modification manquerait un remplacement de même taille
+//! dans la granularité de l'horloge du système de fichiers, et servirait
+//! l'ancienne version. `tholos pack` remplace par renommage (I-007) : la
+//! nouvelle version est servie dès la requête suivante.
 
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use std::time::SystemTime;
+use std::sync::Arc;
 
 use vault_core::Archive;
 
@@ -16,23 +17,13 @@ use crate::error::ApiError;
 /// Extension des archives servies.
 pub const EXTENSION: &str = ".vault";
 
-struct Cached {
-    len: u64,
-    modified: Option<SystemTime>,
-    archive: Arc<Archive>,
-}
-
 pub struct Catalog {
     root: PathBuf,
-    open: Mutex<HashMap<String, Cached>>,
 }
 
 impl Catalog {
     pub fn new(root: impl Into<PathBuf>) -> Self {
-        Self {
-            root: root.into(),
-            open: Mutex::new(HashMap::new()),
-        }
+        Self { root: root.into() }
     }
 
     pub fn root(&self) -> &Path {
@@ -57,7 +48,7 @@ impl Catalog {
         Ok(names)
     }
 
-    /// Archive `name`, ouverte au besoin. Un nom hors du répertoire racine
+    /// Archive `name`, ouverte pour la durée d'une requête. Un nom hors du répertoire racine
     /// (séparateur, `..`, fichier caché, autre extension) est refusé.
     pub fn get(&self, name: &str) -> Result<Arc<Archive>, ApiError> {
         if !valid_name(name) {
@@ -67,31 +58,15 @@ impl Catalog {
             )));
         }
         let path = self.root.join(name);
-        let meta = match fs::metadata(&path) {
-            Ok(m) if m.is_file() => m,
-            _ => return Err(ApiError::NotFound(format!("archive absente : {name}"))),
-        };
-        let (len, modified) = (meta.len(), meta.modified().ok());
-        let mut open = self.open.lock().unwrap_or_else(|p| p.into_inner());
-        if let Some(c) = open.get(name) {
-            if c.len == len && c.modified == modified {
-                return Ok(c.archive.clone());
-            }
+        if !path.is_file() {
+            return Err(ApiError::NotFound(format!("archive absente : {name}")));
         }
-        let archive = Arc::new(Archive::open(&path).map_err(|e| {
+        let archive = Archive::open(&path).map_err(|e| {
             ApiError::Unprocessable(format!(
                 "ouverture de {name} impossible : {e} (diagnostic : `tholos verify {name}`)"
             ))
-        })?);
-        open.insert(
-            name.to_string(),
-            Cached {
-                len,
-                modified,
-                archive: archive.clone(),
-            },
-        );
-        Ok(archive)
+        })?;
+        Ok(Arc::new(archive))
     }
 }
 

@@ -218,15 +218,14 @@ async fn verify_reports_damage_and_corrupt_content_is_refused() {
     );
     assert_eq!(v["chunks_checked"], 2);
 
-    // Un octet abîmé dans le premier morceau de gros.bin (même taille : le
-    // catalogue rouvre l'archive sur la date de modification).
+    // Un octet abîmé dans le premier morceau de gros.bin, posé par
+    // remplacement (renommage) pendant que le service tourne.
     let path = tmp.path().join("servi/jeux.vault");
     let off = {
         let ar = Archive::open(&path).unwrap();
         let first = ar.find("gros.bin").unwrap().chunks[0];
         ar.chunks()[first as usize].offset + 10
     };
-    std::thread::sleep(std::time::Duration::from_millis(20));
     let mut bytes = fs::read(&path).unwrap();
     bytes[off as usize] ^= 0xff;
     let tmp_file = path.with_extension("tmp");

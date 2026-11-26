@@ -16,9 +16,11 @@ nom d'archive est un simple nom de fichier `*.vault` du répertoire servi : sép
 fichier caché ou autre extension donnent 400. Les vérifications (coûteuses en CPU) sont limitées
 à `--verify-slots` simultanées ; au-delà, 503 avec `Retry-After`.
 
-**Mise à jour d'une archive servie.** `tholos pack` écrit un temporaire puis renomme (I-007) : le
-service voit la nouvelle version à la requête suivante (archive rouverte quand sa taille ou sa date
-de modification change). Ne jamais réécrire une archive servie en place.
+**Mise à jour d'une archive servie.** `tholos pack` écrit un temporaire puis renomme (I-007). Le
+service ouvre l'archive à chaque requête (en-tête, trailer et tables, sans décompression : environ
+8 ms pour 20 000 fichiers, démarrage de processus compris) et la referme avec la réponse. Il n'y a
+pas de cache pouvant servir une version périmée : la nouvelle version est servie dès la requête
+suivante, et une réponse en cours continue sur l'ancienne. Ne jamais réécrire une archive servie en place.
 
 ## Routes
 
