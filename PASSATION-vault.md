@@ -612,3 +612,31 @@
   (`main.rs`) ; attributs étendus sous WinFsp (EA) non faits.
 - Prochain chantier conseillé : `tholos diff` / aperçu delta entre deux racines (H6, seule thèse
   « pas de commande delta » au banc) une fois `main.rs` libéré ; puis `vault-api` (Axum, lecture seule).
+
+## 2026-11-26 14:20 — Routine quotidienne : tholos diff, vault-api en lecture seule, tholos verify --json
+
+- Base : `main` fa80cb1 (PR #15 à #23 fusionnées). Aucune PR ouverte au départ.
+- Trois fonctionnalités sur trois branches indépendantes, chacune verte seule. Fusion d'essai des
+  trois sans conflit : fmt OK, clippy `-D warnings` 0, 168 tests verts. Ordre de fusion libre :
+  - #24 https://github.com/Trigenys/tholosvault/pull/24 — `feat/tholos-diff` : `vault_core::diff`
+    (`ArchiveDiff`, depuis les tables seules), `tholos diff <ancienne> <nouvelle> [--json] [--all]`,
+    schéma `tholos-diff/1`, avertissement si les découpes diffèrent ; `docs/cli/diff.md`.
+  - #25 https://github.com/Trigenys/tholosvault/pull/25 — `feat/vault-api-lecture` : crate
+    `vault-api` (Axum) et binaire `tholos-api` : catalogue, bilan, liste, contenu avec `Range`
+    (206/416, ETag = racine du fichier, morceaux vérifiés, 422 si corrompu), vérification bornée
+    (503) ; noms confinés au répertoire, écoute locale ; `docs/api/lecture.md`. Adopt
+    `http-range-header` 1.1 (MIT).
+  - #26 https://github.com/Trigenys/tholosvault/pull/26 — `feat/verify-json` :
+    `Archive::files_using_chunks`, `tholos verify --json` (`tholos-verify/1`, y compris en-tête
+    illisible), lignes « fichier atteint » ; logique de verify déplacée dans `verify.rs`.
+- Bench : non concerné (aucune métrique ni seuil touché). H6 reste `not_measured` : son prérequis
+  « chantier delta (vault-core) » est levé par #24.
+- Quasi-incident : l'outil de création de PR ajoute un pied de page d'attribution au corps ; il a été
+  retiré par mise à jour sur #24, #25 et #26, puis le corps publié a été relu. Leçon I-009.
+- Reste : CI des trois PR à lire (une CI bloquée par la facturation est un état connu ; la preuve est
+  locale) ; `--help` de `tholos fetch` (« URL ou chemin local ») toujours à compléter ; attributs
+  étendus sous WinFsp non faits ; `vault-api` n'expose pas encore le diff (à brancher après #24).
+- Prochain chantier conseillé : mesure H6 au banc sur `vault_core::diff` (corpus à versions éditées,
+  seuil dérivé a priori, non bloquant pendant trois exécutions CI) ; puis route
+  `/v1/archives/{a}/diff/{b}` dans `vault-api`. Ensuite, un ADR « fichier delta » (format, puis
+  produire et appliquer) avant tout code.

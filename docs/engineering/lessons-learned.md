@@ -184,6 +184,22 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
   d'un ordre de grandeur sans changement de code désigne la mesure. On durcit l'estimateur (tranches,
   médiane) et l'on prouve par test qu'il voit encore une vraie régression ; on ne relève jamais le seuil.
 
+### I-009 — L'outil de création de PR ajoute un pied de page d'attribution au corps (near miss, 2026-11-26)
+- **Contexte** : routine quotidienne ; la PR #24 a été créée par l'API avec un corps conforme, mais le
+  corps publié se terminait par un pied de page d'attribution ajouté par l'outil lui-même. Les consignes
+  interdisent toute mention de ce type dans un corps de PR. Le pied de page a été retiré en quelques
+  minutes (mise à jour du corps), avant toute revue ; #25 et #26 ont reçu le même traitement.
+- **Cause racine** : l'outil de création modifie le contenu envoyé. Le corps relu n'est pas celui qui a
+  été rédigé, et rien ne le contrôlait après publication. Classification : défaut d'outillage, détecté
+  à la relecture.
+- **Résolution** : créer la PR, puis en remplacer le corps par une mise à jour (l'outil de mise à jour,
+  lui, ne modifie pas le corps), puis relire le corps publié.
+- **Prévention vérifiable** : après chaque création, relire la PR (`pull_request_read`) et vérifier que
+  la dernière ligne du corps est celle rédigée, c'est-à-dire la dernière puce de la section « RAIDER
+  review ». Une PR dont le corps finit autrement n'est pas annoncée comme prête.
+- **Leçon** : ce qui part vers un service externe se relit tel que le service l'a stocké, pas tel qu'on
+  l'a envoyé. Toute couche d'outillage peut réécrire un contenu publié.
+
 ## Réfutations consignées par le banc
 
 ### B-001 — H5 : coût de construction de la parité (2026-11-16)
