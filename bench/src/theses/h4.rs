@@ -26,7 +26,9 @@ use vault_mount::{mount, MountOptions, ReadStats, VaultFs};
 
 use super::{pack_opts, Ctx, Produced};
 use crate::corpus::{self, Files};
-use crate::measure::{median, median_f64, percentile, samples_ns, time_ns};
+use crate::measure::{
+    median, median_f64, percentile_median_of_rounds, samples_ns, time_ns, TAIL_ROUNDS,
+};
 use crate::prng::Xorshift;
 use crate::report::Measured;
 use crate::theses::h1::{LEVEL, SEED_BINARY, SEED_CODE};
@@ -331,7 +333,7 @@ pub fn run(ctx: &mut Ctx) -> Result<Produced> {
         bail!("aucun échantillon d'ouverture");
     }
     ctx.record_samples("h4.mount_open_ns", &open_ns);
-    let p99 = percentile(&open_ns, 99.0);
+    let p99 = percentile_median_of_rounds(&open_ns, 99.0, TAIL_ROUNDS);
     out.push(Measured::from_samples(
         "h4.mount_open_ns",
         &open_ns,

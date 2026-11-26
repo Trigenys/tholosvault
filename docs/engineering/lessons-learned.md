@@ -167,6 +167,23 @@ résolution, prévention vérifiable, leçon généralisée. À consulter avant 
   sortie et n'exposer le nom final qu'une fois le fichier complet ; tester l'idempotence avec la sortie
   **dans** l'entrée, pas seulement à côté.
 
+### I-008 — Un seuil bloquant sur un p99 brut échoue au hasard sur un runner partagé (2026-11-26)
+- **Contexte** : après la fusion des PR #15 à #22, le bench `ci` sur `windows-latest` échoue sur
+  `h3.find_p99_over_blake3_mib` = 0,0522 (seuil bloquant ≤ 0,05) ; le même job relancé sans changement
+  mesure 0,0028. Toutes les PR avaient passé ce seuil.
+- **Cause racine** : le p99 de 20 000 recherches de ~300 ns est porté par les 200 plus lentes ; une seule
+  rafale de préemption de l'hôte (runner partagé, interruptions) suffit à les fournir. L'estimateur, et non
+  le code mesuré, variait d'un facteur ~20. Classification : défaut de méthode de mesure (gate instable).
+- **Résolution** : p99 par tranches (5 tranches contiguës, médiane des p99) pour les seuils de latence
+  H3 et H4 ; le seuil reste 0,05, inchangé. Le p99 brut reste rapporté.
+- **Prévention vérifiable** : tests `rounds_isolate_a_preemption_burst` (une rafale contiguë n'affecte
+  pas l'estimateur) et `rounds_keep_a_systematic_tail` (une queue lente répartie reste détectée) dans
+  `bench/src/measure.rs`.
+- **Leçon** : un seuil bloquant de queue ne porte pas sur un estimateur qu'un seul événement de l'hôte
+  peut faire basculer. Avant d'incriminer le code ou de toucher au seuil, relancer et comparer : un écart
+  d'un ordre de grandeur sans changement de code désigne la mesure. On durcit l'estimateur (tranches,
+  médiane) et l'on prouve par test qu'il voit encore une vraie régression ; on ne relève jamais le seuil.
+
 ## Réfutations consignées par le banc
 
 ### B-001 — H5 : coût de construction de la parité (2026-11-16)
